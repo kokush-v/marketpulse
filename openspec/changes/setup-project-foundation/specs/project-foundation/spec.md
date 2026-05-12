@@ -27,12 +27,21 @@ The system SHALL provide a Next.js frontend application that can be started in a
 
 The system SHALL provide Docker Compose configuration for running PostgreSQL locally.
 
+The system SHALL provide a separate PostgreSQL service for local test database checks through a Docker Compose test profile.
+
 #### Scenario: Start local PostgreSQL
 
 - Given Docker is available on the developer machine
 - When the developer starts the Docker Compose database service
 - Then PostgreSQL starts locally
 - And the configured database, username, and password are available to the backend
+
+#### Scenario: Start local test PostgreSQL
+
+- Given Docker is available on the developer machine
+- When the developer starts the Docker Compose test database profile
+- Then PostgreSQL starts locally for tests on a port separate from the development database
+- And the configured test database, username, and password are available to backend tests
 
 ### Requirement: Local environment examples are separated by runtime
 
@@ -58,6 +67,20 @@ The backend SHALL use configured database connection settings to connect to loca
 - And the backend database connection settings match the local PostgreSQL service
 - When the backend performs a database connectivity check
 - Then the connection succeeds
+
+#### Scenario: Backend verifies test database connectivity
+
+- Given test PostgreSQL is running through Docker Compose
+- And `TEST_DATABASE_URL` matches the local test PostgreSQL service
+- When backend database smoke tests run
+- Then the smoke tests connect to the test database instead of the development database
+
+#### Scenario: Backend database smoke tests fall back to default database URL
+
+- Given `TEST_DATABASE_URL` is not configured
+- And `DATABASE_URL` is configured
+- When backend database smoke tests run
+- Then the smoke tests use `DATABASE_URL`
 
 #### Scenario: Backend reports database connectivity failure
 

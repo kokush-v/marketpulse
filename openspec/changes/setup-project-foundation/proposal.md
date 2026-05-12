@@ -9,6 +9,7 @@ MarketPulse needs a base technical foundation before feature implementation star
 - Set up a FastAPI backend application that can start locally.
 - Set up a Next.js frontend application that can start locally.
 - Provide Docker Compose configuration for local PostgreSQL.
+- Provide a separate Docker Compose PostgreSQL service for local test database checks.
 - Configure backend database connectivity to local PostgreSQL.
 - Configure Alembic for database migrations.
 - Add a backend health check endpoint.
@@ -31,6 +32,7 @@ MarketPulse needs a base technical foundation before feature implementation star
 - Backend starts locally.
 - Frontend starts locally.
 - PostgreSQL runs locally through Docker Compose.
+- An isolated test PostgreSQL database can run locally through a Docker Compose test profile.
 - Backend can connect to PostgreSQL.
 - Alembic is configured.
 - Health check endpoint works.

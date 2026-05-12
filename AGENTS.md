@@ -31,6 +31,8 @@ Use Codex skills for role-specific work:
 - `marketpulse-create-openspec-change` to create a new MarketPulse OpenSpec change.
 - `marketpulse-spec-agent` to create, validate, or refine OpenSpec changes.
 - `marketpulse-implementation-agent` to implement an approved and valid MarketPulse OpenSpec change.
+- `marketpulse-qa-agent` to verify tests, acceptance criteria, and edge cases after implementation.
+- `marketpulse-review-agent` to review implementation changes against an OpenSpec change before commit, PR, or merge.
 - `openspec-propose` to propose a new OpenSpec change with artifacts.
 - `openspec-apply-change` to implement tasks from an approved OpenSpec change.
 - `openspec-archive-change` to archive a completed OpenSpec change.

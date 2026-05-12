@@ -18,7 +18,9 @@
 ## Database
 
 - [x] Add Docker Compose configuration for local PostgreSQL.
+- [x] Add Docker Compose configuration for isolated local test PostgreSQL.
 - [x] Add environment configuration for local PostgreSQL credentials and database name.
+- [x] Add environment configuration for local test PostgreSQL credentials and database name.
 - [x] Configure Alembic for migration generation and execution.
 - [x] Add an initial Alembic baseline that does not introduce product domain tables unless required by the migration tooling.
 
@@ -36,6 +38,7 @@
 - [x] Add Pytest configuration.
 - [x] Add backend tests for the health check endpoint.
 - [x] Add backend tests or smoke checks for database connectivity.
+- [x] Configure database smoke checks to prefer `TEST_DATABASE_URL` and fall back to `DATABASE_URL`.
 - [x] Verify Ruff runs successfully.
 - [x] Verify frontend typecheck runs successfully.
 - [x] Verify frontend lint runs successfully.
