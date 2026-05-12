@@ -38,6 +38,26 @@ Use Codex skills for role-specific work:
 - `openspec-archive-change` to archive a completed OpenSpec change.
 - `openspec-explore` to explore requirements or architecture before proposing a change.
 
+## MCP Usage
+
+Use GitHub MCP only for:
+
+- reading repository, branch, or PR status
+- creating pull requests
+- checking PR metadata
+- adding PR comments when requested
+
+Use Linear MCP only for:
+
+- creating issues from approved, strictly validated OpenSpec changes
+- reading issue context
+- updating issue status
+- adding implementation or review summaries
+
+Do not use MCP to bypass OpenSpec.
+Before creating a Linear issue, ensure the active OpenSpec change includes `proposal.md`, `tasks.md`, and any required nested specs at `openspec/changes/<change-id>/specs/<capability>/spec.md`, and that `openspec validate <change-id> --strict` passes.
+Implementation and review must happen before creating a PR.
+
 ## Implementation Guidance
 
 - Before implementation, identify the active change and confirm its `proposal.md`, `tasks.md`, and nested specs are present and valid.

@@ -61,6 +61,19 @@ For setup-project-foundation, verify:
 - GitHub Actions has PostgreSQL service for backend tests.
 - No production credentials are used.
 
+## GitHub MCP Rule
+
+Use GitHub MCP only after local review passes.
+
+Allowed actions:
+
+- read branch status
+- create draft PR
+- add review summary to PR
+
+Do not merge PRs automatically.
+Do not delete branches automatically.
+
 ## Output
 
 Return:

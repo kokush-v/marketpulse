@@ -49,6 +49,17 @@ Before creating a change, ask only the missing questions from this list:
 
 Do not ask all questions if the answer is already clear from context.
 
+## Linear MCP Rule
+
+After creating and validating an OpenSpec change, suggest creating a Linear issue.
+
+Do not create a Linear issue unless:
+
+- `proposal.md` exists
+- `tasks.md` exists
+- nested `specs/<capability>/spec.md` exists
+- `openspec validate <change-id> --strict` passes
+
 ## Output Files
 
 Create this structure:
