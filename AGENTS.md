@@ -49,13 +49,13 @@ Use GitHub MCP only for:
 
 Use Linear MCP only for:
 
-- creating issues from approved OpenSpec proposals
+- creating issues from approved, strictly validated OpenSpec changes
 - reading issue context
 - updating issue status
 - adding implementation or review summaries
 
 Do not use MCP to bypass OpenSpec.
-An OpenSpec proposal must exist before creating a Linear issue.
+Before creating a Linear issue, ensure the active OpenSpec change includes `proposal.md`, `tasks.md`, and any required nested specs at `openspec/changes/<change-id>/specs/<capability>/spec.md`, and that `openspec validate <change-id> --strict` passes.
 Implementation and review must happen before creating a PR.
 
 ## Implementation Guidance
