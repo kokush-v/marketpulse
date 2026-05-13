@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketpulse-postgres-dev
+    environment:
+      POSTGRES_USER: marketpulse
+      POSTGRES_PASSWORD: marketpulse
+      POSTGRES_DB: marketpulse_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketpulse -d marketpulse_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: marketpulse-postgres-test
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: marketpulse
+      POSTGRES_PASSWORD: marketpulse
+      POSTGRES_DB: marketpulse_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketpulse -d marketpulse_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_dev_data:

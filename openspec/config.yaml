@@ -10,7 +10,7 @@ context: |
 
   MVP scope: one authenticated regular user role. All watchlists, symbols, alerts, Telegram settings, and notification history are user-scoped.
 
-  Backend: Python, FastAPI, async SQLAlchemy, asyncpg, Alembic, PostgreSQL, Pydantic, Pytest, pytest-asyncio, Ruff, Poetry, OpenAPI/Swagger.
+  Backend: Python, FastAPI, async SQLAlchemy, asyncpg, Alembic, PostgreSQL, Pydantic, Pytest, pytest-asyncio, Ruff, uv, OpenAPI/Swagger.
 
   Frontend: Next.js 15+ App Router, TypeScript, TailwindCSS, shadcn/ui, TanStack Query, Zustand when needed, React Hook Form, Zod, Axios, Recharts, Orval.
 

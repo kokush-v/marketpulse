@@ -122,9 +122,9 @@ openspec validate <change-id> --strict
 Backend:
 
 ```bash
-poetry run ruff check .
-poetry run ruff format --check .
-poetry run pytest
+cd backend
+make lint
+make test-unit
 ```
 
 Frontend:
