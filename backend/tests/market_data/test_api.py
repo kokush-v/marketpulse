@@ -63,6 +63,10 @@ def test_market_data_requires_bearer_authorization():
     response = TestClient(app).get("/api/market-data/symbols/AAPL/quote")
 
     assert response.status_code == 401
+    assert response.json() == {
+        "code": "unauthorized",
+        "message": "Authentication is required.",
+    }
     assert "FINNHUB" not in response.text.upper()
 
 
@@ -73,6 +77,10 @@ def test_market_data_rejects_non_bearer_authorization():
     )
 
     assert response.status_code == 401
+    assert response.json() == {
+        "code": "unauthorized",
+        "message": "A bearer token is required.",
+    }
 
 
 def test_symbol_search_normalizes_query_and_response():
