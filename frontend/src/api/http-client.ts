@@ -1,9 +1,22 @@
+type OrvalRequest = {
+  url: string;
+  method?: string;
+  signal?: AbortSignal;
+};
+
 export async function customFetch<T>(
-  url: string,
+  request: string | OrvalRequest,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(url, {
+  const resolvedUrl = typeof request === "string" ? request : request.url;
+  const resolvedMethod =
+    typeof request === "string" ? options?.method : (request.method ?? options?.method);
+  const resolvedSignal = typeof request === "string" ? options?.signal : request.signal;
+
+  const response = await fetch(resolvedUrl, {
     ...options,
+    method: resolvedMethod,
+    signal: resolvedSignal,
     headers: {
       "Content-Type": "application/json",
       ...(options?.headers ?? {}),
