@@ -1,7 +1,9 @@
 from collections.abc import Mapping
 from typing import Any
 
+import finnhub
 from fastapi import status
+from finnhub.exceptions import FinnhubAPIException, FinnhubRequestException
 
 from app.core.config import Settings
 from app.market_data.errors import (
@@ -11,21 +13,6 @@ from app.market_data.errors import (
 )
 
 JsonObject = Mapping[str, Any]
-
-try:
-    import finnhub
-    from finnhub.exceptions import FinnhubAPIException, FinnhubRequestException
-except ImportError:  # pragma: no cover - dependency installation is covered by lockfile checks.
-    finnhub = None
-    FinnhubAPIException = None
-    FinnhubRequestException = None
-
-FINNHUB_API_EXCEPTIONS = (
-    (FinnhubAPIException,) if FinnhubAPIException is not None else ()
-)
-FINNHUB_REQUEST_EXCEPTIONS = (
-    (FinnhubRequestException,) if FinnhubRequestException is not None else ()
-)
 
 
 class FinnhubProvider:
@@ -49,9 +36,9 @@ class FinnhubProvider:
             payload = call(self._get_sdk_client())
         except MarketDataError:
             raise
-        except FINNHUB_API_EXCEPTIONS as exc:
+        except FinnhubAPIException as exc:
             raise self._map_api_exception(exc) from exc
-        except FINNHUB_REQUEST_EXCEPTIONS as exc:
+        except FinnhubRequestException as exc:
             raise MarketDataError(
                 code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
                 message="Market data provider is temporarily unavailable.",
@@ -78,12 +65,6 @@ class FinnhubProvider:
 
         if not self._settings.finnhub_api_key:
             raise provider_unconfigured_error()
-
-        if finnhub is None:
-            raise MarketDataError(
-                code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
-                message="Market data provider SDK is not installed.",
-            )
 
         self._sdk_client = finnhub.Client(api_key=self._settings.finnhub_api_key)
         self._sdk_client.API_URL = self._settings.finnhub_api_base_url.rstrip("/")
