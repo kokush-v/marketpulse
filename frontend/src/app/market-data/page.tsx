@@ -2,14 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AxiosError } from "axios";
-import {
-  AlertCircle,
-  ArrowDownRight,
-  ArrowUpRight,
-  BarChart3,
-  Loader2,
-  Search,
-} from "lucide-react";
+import { AlertCircle, ArrowDownRight, ArrowUpRight, BarChart3, Loader2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -280,21 +273,19 @@ export default function MarketDataPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <section className="border-b bg-card">
-        <div className="mx-auto flex min-h-[72px] w-full max-w-6xl flex-col justify-center gap-1 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">MarketPulse</p>
-            <h1 className="text-2xl font-semibold tracking-normal">Market data</h1>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
-            Daily prices only
-          </div>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
+      <section className="flex flex-col gap-3 border-b pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Stocks</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Market data</h1>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <BarChart3 className="h-4 w-4" aria-hidden="true" />
+          Daily prices only
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-8 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section className="grid gap-6 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
         <aside className="space-y-6">
           <div className="rounded-lg border bg-card p-5 shadow-sm">
             <form className="space-y-3" onSubmit={form.handleSubmit(submit)}>
@@ -504,6 +495,6 @@ export default function MarketDataPage() {
           ) : null}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

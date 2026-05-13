@@ -1,4 +1,4 @@
-import { Activity, Bell, LineChart, Newspaper } from "lucide-react";
+import { Activity, BarChart3, Bell, LineChart, Newspaper } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -12,21 +12,21 @@ const workspaceItems = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <section className="border-b bg-card">
-        <div className="mx-auto flex min-h-[72px] w-full max-w-6xl items-center justify-between px-6">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">MarketPulse</p>
-            <h1 className="text-2xl font-semibold tracking-normal">Workspace</h1>
-          </div>
-          <Button variant="outline" size="sm">
-            <Activity className="h-4 w-4" aria-hidden="true" />
-            Ready
-          </Button>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:py-8">
+      <section className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground">Overview</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Workspace</h1>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/market-data">
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
+            Open market data
+          </Link>
+        </Button>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-4 px-6 py-8 md:grid-cols-3">
+      <section className="grid gap-4 py-6 md:grid-cols-3">
         {workspaceItems.map((item) => (
           <div key={item.label} className="rounded-lg border bg-card p-5 shadow-sm">
             <div className="flex items-center gap-3">
@@ -43,6 +43,6 @@ export default function Home() {
           </div>
         ))}
       </section>
-    </main>
+    </div>
   );
 }
