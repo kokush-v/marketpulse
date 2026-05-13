@@ -28,10 +28,6 @@ function readBearerToken() {
     }
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    return process.env.NEXT_PUBLIC_MARKETPULSE_DEV_BEARER_TOKEN?.trim() || null;
-  }
-
   return null;
 }
 
