@@ -1,28 +1,109 @@
 schema: spec-driven
 
+project:
+  name: MarketPulse
+  type: web-application
+  methodology: spec-driven-development
+
 context: |
-  Project: MarketPulse, a web app for authenticated users to manage stock watchlists, view market data and company news, configure alert rules, and receive Telegram notifications and daily digests.
+  Project: MarketPulse, a web application for authenticated users to manage stock watchlists, view market data and company news, configure alert rules, and receive Telegram notifications and daily digests.
+
   MVP scope: one authenticated regular user role. All watchlists, symbols, alerts, Telegram settings, and notification history are user-scoped.
-  Backend: Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Pytest, Ruff, OpenAPI/Swagger.
-  Frontend: Next.js 15+ App Router, TypeScript, TailwindCSS, shadcn/ui, TanStack Query, Zustand, React Hook Form, Zod, Axios, Recharts.
-  Infrastructure: Supabase Auth through the backend, Docker, GitHub Actions, GitHub Container Registry, AWS ECS, AWS Secrets Manager, CloudWatch.
-  Integrations: Finnhub API for market data/news; Telegram Bot API for notifications.
-  Architecture: backend is the trusted boundary for auth, authorization, provider calls, caching, alert evaluation, and notification delivery.
-  Security: derive ownership from the authenticated user and enforce row-level ownership in backend queries. Never expose provider API keys or Telegram bot tokens to the frontend.
-  Data conventions: stock tickers are normalized to uppercase; prevent duplicate symbols inside a watchlist; prevent duplicate news articles by URL.
-  OpenSpec domains: auth, watchlists, market-data, news, alerts, telegram, notifications, background-jobs.
+
+  Backend: Python, FastAPI, async SQLAlchemy, asyncpg, Alembic, PostgreSQL, Pydantic, Pytest, pytest-asyncio, Ruff, Poetry, OpenAPI/Swagger.
+
+  Frontend: Next.js 15+ App Router, TypeScript, TailwindCSS, shadcn/ui, TanStack Query, Zustand when needed, React Hook Form, Zod, Axios, Recharts, Orval.
+
+  Infrastructure: Supabase Auth through the backend, Docker, GitHub Actions, GitHub Container Registry, AWS ECS, AWS Secrets Manager, AWS CloudWatch.
+
+  Integrations: Finnhub API for market data and news; Telegram Bot API through aiogram for async notification delivery and Telegram account linking.
+
+  Architecture: the backend is the trusted boundary for authentication, authorization, provider calls, caching, alert evaluation, and notification delivery.
+
+  Security: derive ownership from the authenticated user and enforce row-level ownership in backend queries. Never expose provider API keys, Supabase service-role keys, or Telegram bot tokens to the frontend.
+
+  Data conventions: stock tickers are normalized to uppercase; duplicate symbols inside the same watchlist are prevented; duplicate news articles by URL are prevented.
+
+  OpenSpec domains: auth, watchlists, market-data, news, alerts, telegram, notifications, background-jobs, api-client-generation.
 
 rules:
+  general:
+    - Keep changes small and focused.
+    - Do not invent requirements.
+    - Do not add out-of-scope functionality.
+    - Prefer explicit behavior over vague implementation notes.
+    - Stop and ask for clarification if requirements conflict or are incomplete.
+
   proposal:
+    - Include Summary, Problem, Proposed Solution, Scope, Non-Goals, and Impact sections.
     - Include non-goals when scope could expand.
     - Name affected domains and primary user workflows.
+    - Keep proposals focused on one logical change.
+    - Do not include low-level implementation details unless they affect scope or risk.
+
   specs:
-    - Use RFC-style SHALL/SHOULD/MAY language.
+    - Use RFC-style SHALL, SHOULD, and MAY language.
     - Use Given/When/Then scenarios.
     - Keep requirements user-scoped unless explicitly stated otherwise.
+    - Describe observable behavior, not internal implementation.
+    - Every requirement must include at least one scenario.
+    - Use ADDED, MODIFIED, or REMOVED requirements.
+
   design:
+    - Required for database schema changes, authentication changes, background jobs, external API integrations, and architectural decisions.
     - Call out authorization, data ownership, provider failures, retries, and idempotency where relevant.
-    - Prefer backend-owned provider integrations and caching over frontend direct calls.
+    - Prefer backend-owned provider integrations and caching over frontend direct provider calls.
+    - Include data model changes when persistence changes.
+    - Include API contract notes when backend endpoints affect Orval-generated frontend clients.
+    - Include migration notes when database schema changes.
+    - Include risk and rollback notes for non-trivial changes.
+
   tasks:
     - Break work into independently verifiable backend, frontend, migration, integration, and test tasks.
-    - Include focused tests for new backend behavior and explicit UI states for new frontend flows.
+    - Include focused tests for new backend behavior.
+    - Include explicit UI states for new frontend flows.
+    - Include OpenAPI/Orval regeneration tasks when endpoint contracts change.
+    - Do not mark tasks complete until the related code and tests are actually done.
+    - Include validation commands where relevant.
+
+artifacts:
+  proposal:
+    required_sections:
+      - Summary
+      - Problem
+      - Proposed Solution
+      - Scope
+      - Non-Goals
+      - Impact
+
+  specs:
+    requirement_keywords:
+      - SHALL
+      - SHOULD
+      - MAY
+    scenario_format: given-when-then
+    requirement_operations:
+      - ADDED
+      - MODIFIED
+      - REMOVED
+
+  design:
+    required_when:
+      - database schema changes
+      - authentication changes
+      - background jobs
+      - external API integrations
+      - architectural decisions
+      - API contract changes affecting generated frontend clients
+
+  tasks:
+    style: small-verifiable-steps
+    require_tests: true
+    require_validation: true
+    categories:
+      - backend
+      - frontend
+      - database
+      - integrations
+      - tests
+      - documentation

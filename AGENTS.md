@@ -1,94 +1,316 @@
-# MarketPulse Repository Instructions
+# Agent Instructions
 
-This repository follows OpenSpec-driven development.
+## Project
 
-## Current Repository State
+MarketPulse is built with:
 
-- Product and architecture context lives in `openspec/project.md`.
-- Proposed work lives under `openspec/changes/<change-id>/`.
-- Existing behavior belongs under `openspec/specs/<capability>/spec.md` when specs exist.
-- The current bootstrap change is `openspec/changes/setup-project-foundation/`.
-- The `openspec/specs/` capability folders exist, but the repository may not have baseline `spec.md` files yet.
-- Application code has not necessarily been created yet; check the workspace before assuming backend, frontend, Docker, or CI files exist.
+- FastAPI backend
+- Next.js frontend
+- PostgreSQL database
+- Supabase Auth
+- OpenSpec for spec-driven development
 
-## Global Rules
+Agents must follow OpenSpec before implementation work.
 
-- OpenSpec is the source of truth.
-- Do not implement application code without a valid OpenSpec change.
-- Validate changes with `openspec validate <change-id> --strict`.
-- Keep work scoped to the active OpenSpec change.
-- Never create root-level `openspec/changes/<change-id>/spec.md`.
-- Use nested specs: `openspec/changes/<change-id>/specs/<capability>/spec.md`.
-- Do not expose secrets, tokens, provider API keys, or database credentials.
-- User data must always be scoped by authenticated user.
-- Read `openspec/project.md` before proposing, validating, or implementing MarketPulse work.
-- Read relevant existing specs under `openspec/specs/` when they exist.
+## General Agent Rules
 
-## Local Skill Usage
+- Do not implement code without an approved OpenSpec change.
+- Do not invent requirements.
+- Do not add out-of-scope functionality.
+- Do not read the entire repository unless explicitly required.
+- Start from the relevant OpenSpec files.
+- Inspect only files related to the selected task.
+- Prefer minimal, targeted edits over broad refactoring.
+- Do not introduce unrelated abstractions.
+- If requirements are unclear or conflicting, stop and ask for clarification.
+- Summarize important assumptions before implementation.
+- Keep implementation aligned with `tasks.md`.
 
-Use Codex skills for role-specific work:
+## Required OpenSpec Reading
 
-- `marketpulse-create-openspec-change` to create a new MarketPulse OpenSpec change.
-- `marketpulse-spec-agent` to create, validate, or refine OpenSpec changes.
-- `marketpulse-implementation-agent` to implement an approved and valid MarketPulse OpenSpec change.
-- `marketpulse-qa-agent` to verify tests, acceptance criteria, and edge cases after implementation.
-- `marketpulse-review-agent` to review implementation changes against an OpenSpec change before commit, PR, or merge.
-- `openspec-propose` to propose a new OpenSpec change with artifacts.
-- `openspec-apply-change` to implement tasks from an approved OpenSpec change.
-- `openspec-archive-change` to archive a completed OpenSpec change.
-- `openspec-explore` to explore requirements or architecture before proposing a change.
+Before creating or implementing a change, read:
 
-## Agent Flow Orchestration
+- `openspec/project.md`
+- `openspec/config.yaml`
+- relevant current specs in `openspec/specs/`
+- relevant change files in `openspec/changes/<change-id>/`
 
-Use Codex skills as the default workflow mechanism.
+For implementation work, read:
 
-Use subagents only when they provide context isolation or independent verification.
+- `openspec/changes/<change-id>/proposal.md`
+- `openspec/changes/<change-id>/tasks.md`
+- `openspec/changes/<change-id>/design.md` if it exists
+- `openspec/changes/<change-id>/specs/**/spec.md`
 
-Required subagent usage:
+## OpenSpec Workflow
 
-- Review subagent must be used before a change is considered ready for commit, PR, or merge.
+Before implementation, validate the change:
 
-Optional subagent usage:
+```bash
+openspec validate <change-id> --strict
+```
 
-- QA subagent may be used after implementation when test output, logs, or acceptance-criteria verification would pollute the main context.
-- Spec subagent may be used for large or ambiguous requirements discovery.
-- Do not use an implementation subagent by default. Implementation should normally happen in the main Codex session using `marketpulse-implementation-agent`.
+During implementation:
 
-Do not spawn subagents for simple Q&A, status requests, instruction-only edits, or small documentation changes.
+- Follow `tasks.md` in order.
+- Do not mark a task complete until the related code and tests are done.
+- Do not change approved requirements without explicit clarification.
+- If implementation discoveries conflict with the approved spec, stop and ask.
 
-For each OpenSpec change, the minimum required flow is:
+After implementation:
 
-1. Use `marketpulse-create-openspec-change` or `marketpulse-spec-agent`.
-2. Validate with `openspec validate <change-id> --strict`.
-3. Create a Linear issue after user approval.
-4. Implement using `marketpulse-implementation-agent`.
-5. Verify using `marketpulse-qa-agent` or a QA subagent when useful.
-6. Review using a Review subagent.
-7. Commit, archive, push, and create PR.
+```bash
+openspec validate <change-id> --strict
+```
 
-## MCP Usage
+Run relevant tests and linters before considering the work complete.
 
-Use GitHub MCP only for:
+## OpenSpec Task Modes
 
-- reading repository, branch, or PR status
-- creating pull requests
-- checking PR metadata
-- adding PR comments when requested
+When the user asks to create, update, or review an OpenSpec proposal, operate in proposal mode.
 
-Use Linear MCP only for:
+Proposal mode rules:
 
-- creating issues from approved, strictly validated OpenSpec changes
-- reading issue context
-- updating issue status
-- adding implementation or review summaries
+- Create or update only OpenSpec files.
+- Do not implement application code.
+- Produce `proposal.md`, `tasks.md`, optional `design.md`, and spec delta files.
+- Validate with `openspec validate <change-id> --strict`.
+- Stop after the OpenSpec change is valid.
+- If the user request is vague, ask clarification questions before creating OpenSpec files.
+- Do not force the user to provide a detailed prompt.
+- Convert short user intent into a structured OpenSpec change through clarification.
+- Ask only scope-changing questions.
+- After clarification, summarize the agreed scope before writing files.
 
-Do not use MCP to bypass OpenSpec.
-Before creating a Linear issue, ensure the active OpenSpec change includes `proposal.md`, `tasks.md`, and any required nested specs at `openspec/changes/<change-id>/specs/<capability>/spec.md`, and that `openspec validate <change-id> --strict` passes.
-Every approved OpenSpec change must have a Linear issue created after strict validation passes and before implementation begins. The Linear issue must reference the OpenSpec change ID.
-Implementation and review must happen before creating a PR.
+When the user asks to implement an approved OpenSpec change, operate in implementation mode.
 
-## Implementation Guidance
+Implementation mode rules:
 
-- Before implementation, identify the active change and confirm its `proposal.md`, `tasks.md`, nested specs, strict validation result, and linked Linear issue are present.
-- For the foundation change, follow `openspec/changes/setup-project-foundation/` and avoid adding product features outside its scope.
-- If implementation discoveries change expected behavior, update the relevant OpenSpec artifacts before or alongside code changes.
+- Validate the change before editing application code.
+- Read only the approved change files and directly relevant code.
+- Follow `tasks.md`.
+- Do not add out-of-scope behavior.
+- Update tests together with implementation.
+- Validate OpenSpec again after implementation.
+
+## Backend Architecture
+
+Use feature-based FastAPI structure:
+
+```text
+app/
+  features/
+    <feature_name>/
+      routes.py
+      service.py
+      schemas.py
+      models.py
+      dependencies.py
+      repository.py
+tests/
+```
+
+File responsibilities:
+
+- `routes.py` defines HTTP endpoints only.
+- `service.py` contains business logic.
+- `repository.py` contains database access when queries become non-trivial.
+- `schemas.py` contains Pydantic request and response schemas.
+- `models.py` contains SQLAlchemy models.
+- `dependencies.py` contains feature-specific FastAPI dependencies.
+
+Tests
+
+- `tests/` should mirror the feature structure for test organization.
+
+## Backend Code Style
+
+- Write simple, explicit code.
+- Prefer readability over clever abstractions.
+- Use typed function signatures.
+- Keep routes thin.
+- Keep business logic in services.
+- Keep database access in repositories when queries become non-trivial.
+- Use explicit Pydantic request and response schemas.
+- Avoid global mutable state.
+- Avoid hidden side effects in helper functions.
+- Avoid broad refactoring unless required by the OpenSpec change.
+- Do not place business logic in route handlers.
+- Do not place complex database queries directly in route handlers.
+- Do not silently swallow exceptions.
+- Prefer domain-specific exceptions where useful.
+- Keep API responses stable and documented through OpenAPI.
+
+## Async Backend Rules
+
+- Prefer async libraries for all database, network, Telegram, and external provider I/O.
+- Use SQLAlchemy `AsyncSession` for application database access.
+- Use `asyncpg` as the PostgreSQL async driver.
+- Do not share one `AsyncSession` across concurrent tasks.
+- Do not call blocking SDK methods inside async route handlers, services, Telegram handlers, or background jobs.
+- Prefer official async SDKs where available.
+- Use async HTTP clients only behind provider adapters when no suitable async SDK exists.
+- Keep external provider clients isolated behind service or provider interfaces.
+- Do not mix sync and async database sessions in application code.
+- Do not use blocking file, network, or sleep operations inside async code.
+
+## Backend Libraries
+
+Preferred backend libraries:
+
+- FastAPI for backend API
+- SQLAlchemy async ORM for database access
+- asyncpg as PostgreSQL driver
+- Alembic for migrations
+- Pydantic for schemas and validation
+- Pytest for tests
+- pytest-asyncio for async tests
+- Ruff for linting and formatting
+- Supabase Auth for authentication
+- Supabase async Python client when server-side Supabase API access is needed
+- PyJWT or python-jose for local JWT verification
+- aiogram for async Telegram Bot API integration
+- HTTPX only as a fallback for async external API calls when no suitable async SDK exists
+
+## Authentication Rules
+
+- Supabase Auth is the authentication provider.
+- Protected backend endpoints must validate Supabase access tokens.
+- Derive the current user from the validated JWT and the local `users` record.
+- Do not trust user IDs from request bodies, query parameters, or path parameters when ownership can be derived from the authenticated user.
+- Enforce row ownership in database queries, not only at the route layer.
+- Keep auth-specific code isolated in an `auth` feature or shared security module.
+- Do not expose provider secrets or service-role keys to the frontend.
+
+## External Integration Rules
+
+- Prefer official async SDKs or stable async client libraries.
+- If a provider only offers a sync SDK, do not call it directly from async application code.
+- Wrap provider access in a dedicated provider class or service.
+- Handle provider failures, timeouts, rate limits, malformed responses, and missing fields.
+- Normalize external data before persistence.
+- Keep provider API keys on the backend only.
+
+## Telegram Rules
+
+- Use aiogram for Telegram Bot API integration.
+- Keep Telegram handlers asynchronous.
+- Keep Telegram command handlers thin.
+- Put Telegram business logic in services.
+- Use background jobs for scheduled digests and alert delivery when needed.
+- Do not block the event loop from Telegram handlers.
+- Make notification delivery idempotent where practical.
+
+## Database Rules
+
+- Use SQLAlchemy models for database tables.
+- Use Alembic migrations for schema changes.
+- Do not change models without adding or updating migrations.
+- Keep ownership constraints explicit in queries.
+- Prevent duplicate user-owned resources where required by the spec.
+- Normalize stock tickers to uppercase before persistence and comparison.
+- Use explicit enums for alert rule types.
+
+## Frontend Architecture
+
+Use Next.js App Router patterns.
+
+Recommended organization:
+
+```text
+app/
+  (auth)/
+  (dashboard)/
+features/
+  <feature_name>/
+    components/
+    hooks/
+    schemas/
+    utils/
+shared/
+  components/
+  lib/
+  types/
+```
+
+## Frontend Code Style
+
+- Use TypeScript.
+- Use shadcn/ui for base components.
+- Use TailwindCSS for styling.
+- Use TanStack Query for server state.
+- Use Zustand only when client-side state is actually needed.
+- Use React Hook Form and Zod for forms.
+- Keep page components focused on composition.
+- Move reusable UI logic into hooks or small components.
+- Show clear loading, empty, and error states for every async screen.
+- Do not manually duplicate generated API request and response types when Orval can generate them.
+- Avoid large components with mixed fetching, validation, and presentation logic.
+
+## API Client Generation
+
+- Backend OpenAPI output is the source of truth for frontend API clients.
+- Use Orval to generate TypeScript API clients from the FastAPI OpenAPI schema.
+- Prefer generated React Query hooks for standard CRUD and read flows.
+- Use custom frontend API code only when generated clients are not practical.
+- When an endpoint contract changes:
+   - update backend schemas
+   - regenerate the frontend client
+   - update affected UI code
+   - update tests if needed
+
+## Testing Rules
+
+Backend:
+
+- Add or update Pytest coverage for changed backend behavior.
+- Use `pytest-asyncio` for async behavior.
+- Test ownership and authorization checks for user-owned resources.
+- Test provider error handling where relevant.
+- Test duplicate prevention where required by the spec.
+
+Frontend:
+
+- Add tests for important form validation and user flows when practical.
+- Cover loading, empty, and error states for new async screens.
+- Ensure generated API types remain aligned with backend changes.
+
+## Quality Gates
+
+Run relevant commands before marking work complete.
+
+Backend examples:
+
+```bash
+poetry run ruff check .
+poetry run ruff format --check .
+poetry run pytest
+```
+
+OpenSpec:
+
+```bash
+openspec validate <change-id> --strict
+```
+
+Frontend examples:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+```
+
+Use the existing project scripts if they differ from these examples.
+
+## Things To Avoid
+
+- Do not implement features directly from vague user requests without an OpenSpec change.
+- Do not expand scope beyond the approved change.
+- Do not add speculative abstractions.
+- Do not read unrelated modules just to infer hidden requirements.
+- Do not mix sync database access into async backend code.
+- Do not call blocking SDKs from async handlers.
+- Do not put provider credentials in frontend code.
+- Do not manually duplicate OpenAPI-generated frontend types.
+- Do not mark OpenSpec tasks complete before code and tests are actually done.
