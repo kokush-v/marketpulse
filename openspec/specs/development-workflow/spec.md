@@ -1,7 +1,7 @@
 # development-workflow Specification
 
 ## Purpose
-TBD - created by archiving change document-mcp-workflow-guidance. Update Purpose after archive.
+Define the required OpenSpec delivery workflow for MarketPulse, including when MCP tools may be used and how implementation, QA, and review phases should be sequenced.
 ## Requirements
 ### Requirement: MCP usage follows OpenSpec workflow
 
@@ -123,4 +123,3 @@ Generated Orval output SHALL NOT be committed to the repository and SHALL be reg
 - Given a market-data API request or response schema changes
 - When the frontend API client is regenerated
 - Then the generated TypeScript types shall reflect the updated OpenAPI contract
-

@@ -1,7 +1,7 @@
 # project-foundation Specification
 
 ## Purpose
-TBD - created by archiving change setup-project-foundation. Update Purpose after archive.
+Define the baseline local development foundation for MarketPulse, including runnable backend and frontend applications, local PostgreSQL services, and separated environment examples.
 ## Requirements
 ### Requirement: Backend application can run locally
 
@@ -179,4 +179,3 @@ CI backend tests SHALL run with PostgreSQL available through a CI service contai
 - When the backend test job starts
 - Then PostgreSQL is available to the backend tests
 - And the backend test environment uses non-production database credentials
-

@@ -1,7 +1,7 @@
 # frontend-theme Specification
 
 ## Purpose
-TBD - created by archiving change use-monochrome-dark-theme. Update Purpose after archive.
+Define the default frontend visual theme for MarketPulse as a monochrome dark palette exposed through the shared shadcn and Tailwind token system.
 ## Requirements
 ### Requirement: Frontend uses a monochrome dark theme
 
@@ -23,4 +23,3 @@ The frontend SHALL expose the theme through the existing shadcn/Tailwind CSS var
 - When the theme tokens are updated
 - Then those token names remain available
 - And existing shadcn/ui components continue to render through the same token interface
-

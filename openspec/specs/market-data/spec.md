@@ -1,7 +1,7 @@
 # market-data Specification
 
 ## Purpose
-TBD - created by archiving change add-market-data-basics. Update Purpose after archive.
+Define the baseline MarketPulse behavior for authenticated market-data lookup, latest quotes, daily historical charts, provider error handling, and backend-mediated Finnhub access.
 ## Requirements
 ### Requirement: Authenticated Market Data Access
 
