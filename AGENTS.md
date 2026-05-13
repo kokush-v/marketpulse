@@ -38,6 +38,19 @@ Use Codex skills for role-specific work:
 - `openspec-archive-change` to archive a completed OpenSpec change.
 - `openspec-explore` to explore requirements or architecture before proposing a change.
 
+## Agent Flow Orchestration
+
+When subagent tooling is available and allowed by the current session instructions, use separate role-specific agents for the major OpenSpec workflow phases:
+
+- Spec agent for creating, validating, or refining OpenSpec changes.
+- Implementation agent for implementing an approved and strictly validated OpenSpec change.
+- QA agent for verifying tests, acceptance criteria, and edge cases after implementation.
+- Review agent for reviewing implementation changes before commit, PR, or merge.
+
+Reuse an already-open agent for the same role and active change when practical instead of spawning a duplicate agent. Send additional instructions to the existing agent, or resume it if needed, so the workflow does not waste context tokens or repeat discovery work.
+
+Do not spawn subagents for simple Q&A, status requests, or instruction-only edits unless the user explicitly asks for agent delegation.
+
 ## MCP Usage
 
 Use GitHub MCP only for:

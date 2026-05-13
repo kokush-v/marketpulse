@@ -7,6 +7,7 @@ MarketPulse now has GitHub and Linear MCP access, but repository and skill instr
 ## Scope
 
 - Add repository-level MCP usage rules for GitHub and Linear.
+- Add repository-level role-agent orchestration rules for spec, implementation, QA, and review phases.
 - Add Linear MCP gating rules to the MarketPulse OpenSpec change creation skill.
 - Add GitHub MCP gating rules to the MarketPulse review skill.
 - Capture the expected MCP workflow order in OpenSpec.
@@ -22,6 +23,8 @@ MarketPulse now has GitHub and Linear MCP access, but repository and skill instr
 ## Acceptance Criteria
 
 - `AGENTS.md` documents allowed GitHub MCP and Linear MCP usage.
+- `AGENTS.md` documents when to use separate role-specific agents for spec, implementation, QA, and review phases.
+- `AGENTS.md` instructs agents to reuse already-open role agents for the same active change when practical.
 - `marketpulse-create-openspec-change` requires proposal, tasks, nested specs, and strict validation before Linear issue creation is suggested.
 - `marketpulse-review-agent` limits GitHub MCP use to post-review branch/PR actions and forbids automatic merge or branch deletion.
 - The OpenSpec change validates with `openspec validate document-mcp-workflow-guidance --strict`.

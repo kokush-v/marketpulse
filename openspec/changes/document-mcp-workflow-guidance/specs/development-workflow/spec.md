@@ -38,3 +38,36 @@ MCP usage SHALL NOT bypass OpenSpec proposal, validation, implementation, QA, re
 - When review or PR work is performed
 - Then GitHub MCP must not merge PRs automatically
 - And GitHub MCP must not delete branches automatically
+
+### Requirement: OpenSpec phases use role-specific agents when appropriate
+
+The repository SHALL define when separate role-specific agents should be used for MarketPulse OpenSpec workflow phases.
+
+When subagent tooling is available and allowed by the current session instructions, the workflow SHALL use separate role-specific agents for spec, implementation, QA, and review phases.
+
+Agents SHALL reuse an already-open role agent for the same active change when practical instead of spawning a duplicate agent.
+
+Agents SHALL NOT spawn subagents for simple Q&A, status requests, or instruction-only edits unless the user explicitly asks for agent delegation.
+
+#### Scenario: Use separate agents for implementation workflow phases
+
+- Given an approved OpenSpec change is ready for implementation
+- And subagent tooling is available and allowed
+- When implementation, QA, and review are needed
+- Then the coordinator uses an implementation agent for code changes
+- And the coordinator uses a QA agent for verification
+- And the coordinator uses a review agent for final review
+
+#### Scenario: Reuse existing role agent for the same change
+
+- Given a role-specific agent is already open for the active OpenSpec change
+- When more work is needed for that same role and change
+- Then the coordinator sends the follow-up work to the existing agent when practical
+- And the coordinator avoids spawning a duplicate agent that would repeat the same context discovery
+
+#### Scenario: Avoid agents for simple instruction edits
+
+- Given the user requests a simple instruction-only edit
+- And the user does not ask for subagent delegation
+- When the edit can be completed directly
+- Then the coordinator updates the instruction files without spawning role-specific agents
