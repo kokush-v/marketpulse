@@ -1,8 +1,10 @@
 import { Activity, Bell, LineChart, Newspaper } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
 const workspaceItems = [
+  { label: "Market data", icon: Activity, href: "/market-data" },
   { label: "Watchlists", icon: LineChart },
   { label: "News", icon: Newspaper },
   { label: "Alerts", icon: Bell },
@@ -33,10 +35,14 @@ export default function Home() {
               </span>
               <h2 className="text-base font-semibold">{item.label}</h2>
             </div>
+            {item.href ? (
+              <Button asChild variant="outline" size="sm" className="mt-5">
+                <Link href={item.href}>Open</Link>
+              </Button>
+            ) : null}
           </div>
         ))}
       </section>
     </main>
   );
 }
-

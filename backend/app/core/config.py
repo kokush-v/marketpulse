@@ -14,6 +14,8 @@ class Settings:
     app_name: str
     app_version: str
     database_url: str
+    finnhub_api_base_url: str
+    finnhub_api_key: str | None
 
 
 @lru_cache
@@ -25,4 +27,6 @@ def get_settings() -> Settings:
             "DATABASE_URL",
             "postgresql+psycopg://marketpulse:marketpulse@localhost:5432/marketpulse",
         ),
+        finnhub_api_base_url=getenv("FINNHUB_API_BASE_URL", "https://finnhub.io/api/v1"),
+        finnhub_api_key=getenv("FINNHUB_API_KEY") or None,
     )

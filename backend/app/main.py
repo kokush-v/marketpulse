@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
+from app.api.market_data import router as market_data_router
 from app.core.config import get_settings
 
 
@@ -11,8 +12,8 @@ def create_app() -> FastAPI:
         version=settings.app_version,
     )
     app.include_router(health_router)
+    app.include_router(market_data_router)
     return app
 
 
 app = create_app()
-
