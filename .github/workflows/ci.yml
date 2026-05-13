@@ -62,14 +62,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --dev
+
+      - name: Export backend OpenAPI schema
+        working-directory: backend
+        run: uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > ../frontend/marketpulse-openapi.json
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.18.0"
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Generate frontend API client
+        working-directory: frontend
+        env:
+          MARKETPULSE_OPENAPI_URL: ./marketpulse-openapi.json
+        run: npm run generate:api
 
       - name: Run frontend typecheck
         working-directory: frontend
