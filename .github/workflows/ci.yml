@@ -24,15 +24,15 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: uv sync --dev
+        run: make sync
 
       - name: Run backend Ruff checks
         working-directory: backend
-        run: uv run ruff check . && uv run ruff format --check .
+        run: make lint
 
       - name: Run backend unit tests
         working-directory: backend
-        run: uv run pytest tests/unit
+        run: make test-unit
 
   frontend:
     name: Frontend
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: uv sync --dev
+        run: make sync
 
       - name: Export backend OpenAPI schema
         working-directory: backend

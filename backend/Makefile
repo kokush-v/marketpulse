@@ -1,4 +1,4 @@
-.PHONY: sync dev lint test migrate migrate-test
+.PHONY: sync dev lint test test-unit migrate migrate-test
 
 sync:
 	uv sync --dev
@@ -13,8 +13,11 @@ lint:
 test:
 	uv run pytest
 
+test-unit:
+	uv run pytest tests/unit
+
 migrate:
 	uv run alembic upgrade head
 
 migrate-test:
-	DATABASE_URL=$${TEST_DATABASE_URL} uv run alembic upgrade head
+	DATABASE_URL=$$(uv run python -c "from app.core.config import settings; print(settings.test_database_url)") uv run alembic upgrade head

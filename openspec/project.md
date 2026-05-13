@@ -40,7 +40,7 @@ Provider API keys and Telegram bot tokens must stay on the backend only.
 - Pytest
 - pytest-asyncio
 - Ruff
-- Poetry
+- uv
 - OpenAPI / Swagger
 - Supabase Auth
 - Supabase async Python client when server-side Supabase API access is needed
