@@ -11,14 +11,29 @@ GitHub MCP usage SHALL be limited to repository, branch, PR status, PR creation,
 
 Linear MCP usage SHALL be limited to issues created from approved OpenSpec proposals, reading issue context, updating issue status, and adding implementation or review summaries.
 
-MCP usage SHALL NOT bypass OpenSpec proposal, validation, implementation, QA, review, commit, archive, or PR sequencing.
+Every approved OpenSpec change SHALL have a Linear issue created after strict OpenSpec validation passes and before implementation begins.
 
-#### Scenario: Create Linear issue after OpenSpec validation
+The Linear issue SHALL reference the OpenSpec change ID.
+
+Implementation, QA, review, and PR summaries SHOULD reference the Linear issue once it exists.
+
+MCP usage SHALL NOT bypass OpenSpec proposal, validation, Linear issue tracking, implementation, QA, review, commit, archive, or PR sequencing.
+
+#### Scenario: Create required Linear issue after OpenSpec validation
 
 - Given an OpenSpec change has `proposal.md`, `tasks.md`, and nested `specs/<capability>/spec.md`
 - And `openspec validate <change-id> --strict` passes
-- When a Linear issue is needed for tracking approved work
-- Then Linear MCP may create an issue from the approved OpenSpec proposal
+- When the change is approved for implementation
+- Then Linear MCP shall create an issue from the approved OpenSpec proposal before implementation begins
+- And the Linear issue shall reference the OpenSpec change ID
+
+#### Scenario: Block implementation before Linear issue exists
+
+- Given an approved OpenSpec change is ready for implementation
+- And no Linear issue exists for the change
+- When implementation is requested
+- Then implementation shall not begin
+- And the missing Linear issue requirement shall be reported
 
 #### Scenario: Block Linear issue before OpenSpec validation
 
@@ -31,6 +46,7 @@ MCP usage SHALL NOT bypass OpenSpec proposal, validation, implementation, QA, re
 
 - Given implementation, QA, and local review have passed for an OpenSpec change
 - And the change has been committed and pushed to a branch
+- And the related Linear issue exists
 - When a pull request is needed
 - Then GitHub MCP may read branch status and create a draft PR
 - And GitHub MCP may add a review summary to the PR when requested

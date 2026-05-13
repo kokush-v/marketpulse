@@ -40,16 +40,31 @@ Use Codex skills for role-specific work:
 
 ## Agent Flow Orchestration
 
-When subagent tooling is available and allowed by the current session instructions, use separate role-specific agents for the major OpenSpec workflow phases:
+Use Codex skills as the default workflow mechanism.
 
-- Spec agent for creating, validating, or refining OpenSpec changes.
-- Implementation agent for implementing an approved and strictly validated OpenSpec change.
-- QA agent for verifying tests, acceptance criteria, and edge cases after implementation.
-- Review agent for reviewing implementation changes before commit, PR, or merge.
+Use subagents only when they provide context isolation or independent verification.
 
-Reuse an already-open agent for the same role and active change when practical instead of spawning a duplicate agent. Send additional instructions to the existing agent, or resume it if needed, so the workflow does not waste context tokens or repeat discovery work.
+Required subagent usage:
 
-Do not spawn subagents for simple Q&A, status requests, or instruction-only edits unless the user explicitly asks for agent delegation.
+- Review subagent must be used before a change is considered ready for commit, PR, or merge.
+
+Optional subagent usage:
+
+- QA subagent may be used after implementation when test output, logs, or acceptance-criteria verification would pollute the main context.
+- Spec subagent may be used for large or ambiguous requirements discovery.
+- Do not use an implementation subagent by default. Implementation should normally happen in the main Codex session using `marketpulse-implementation-agent`.
+
+Do not spawn subagents for simple Q&A, status requests, instruction-only edits, or small documentation changes.
+
+For each OpenSpec change, the minimum required flow is:
+
+1. Use `marketpulse-create-openspec-change` or `marketpulse-spec-agent`.
+2. Validate with `openspec validate <change-id> --strict`.
+3. Create a Linear issue after user approval.
+4. Implement using `marketpulse-implementation-agent`.
+5. Verify using `marketpulse-qa-agent` or a QA subagent when useful.
+6. Review using a Review subagent.
+7. Commit, archive, push, and create PR.
 
 ## MCP Usage
 
@@ -69,10 +84,11 @@ Use Linear MCP only for:
 
 Do not use MCP to bypass OpenSpec.
 Before creating a Linear issue, ensure the active OpenSpec change includes `proposal.md`, `tasks.md`, and any required nested specs at `openspec/changes/<change-id>/specs/<capability>/spec.md`, and that `openspec validate <change-id> --strict` passes.
+Every approved OpenSpec change must have a Linear issue created after strict validation passes and before implementation begins. The Linear issue must reference the OpenSpec change ID.
 Implementation and review must happen before creating a PR.
 
 ## Implementation Guidance
 
-- Before implementation, identify the active change and confirm its `proposal.md`, `tasks.md`, and nested specs are present and valid.
+- Before implementation, identify the active change and confirm its `proposal.md`, `tasks.md`, nested specs, strict validation result, and linked Linear issue are present.
 - For the foundation change, follow `openspec/changes/setup-project-foundation/` and avoid adding product features outside its scope.
 - If implementation discoveries change expected behavior, update the relevant OpenSpec artifacts before or alongside code changes.
