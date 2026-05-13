@@ -61,6 +61,18 @@ def test_finnhub_provider_maps_sdk_access_denied_to_chart_unavailable():
         raise AssertionError("Expected chart-unavailable error.")
 
 
+def test_finnhub_provider_maps_quote_access_denied_to_provider_error():
+    provider = FinnhubProvider(settings(), sdk_client=FailingSdkClient(status.HTTP_403_FORBIDDEN))
+
+    try:
+        provider.get_quote("AAPL")
+    except MarketDataError as exc:
+        assert exc.code == MarketDataErrorCode.PROVIDER_UNAVAILABLE
+        assert "token" not in exc.message.lower()
+    else:
+        raise AssertionError("Expected provider-unavailable error.")
+
+
 def test_finnhub_provider_maps_non_mapping_payload_to_malformed_response():
     provider = FinnhubProvider(settings(), sdk_client=NonMappingSdkClient())
 

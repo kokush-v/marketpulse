@@ -21,23 +21,30 @@ class FinnhubProvider:
         self._sdk_client = sdk_client
 
     def search_symbols(self, query: str) -> JsonObject:
-        return self._call_provider(lambda client: client.symbol_lookup(query))
+        return self._call_provider(
+            lambda client: client.symbol_lookup(query),
+            access_denied_error=provider_access_denied_error(),
+        )
 
     def get_quote(self, symbol: str) -> JsonObject:
-        return self._call_provider(lambda client: client.quote(symbol))
+        return self._call_provider(
+            lambda client: client.quote(symbol),
+            access_denied_error=provider_access_denied_error(),
+        )
 
     def get_daily_candles(self, symbol: str, from_timestamp: int, to_timestamp: int) -> JsonObject:
         return self._call_provider(
-            lambda client: client.stock_candles(symbol, "D", from_timestamp, to_timestamp)
+            lambda client: client.stock_candles(symbol, "D", from_timestamp, to_timestamp),
+            access_denied_error=chart_access_denied_error(),
         )
 
-    def _call_provider(self, call: Any) -> JsonObject:
+    def _call_provider(self, call: Any, access_denied_error: MarketDataError) -> JsonObject:
         try:
             payload = call(self._get_sdk_client())
         except MarketDataError:
             raise
         except FinnhubAPIException as exc:
-            raise self._map_api_exception(exc) from exc
+            raise self._map_api_exception(exc, access_denied_error) from exc
         except FinnhubRequestException as exc:
             raise MarketDataError(
                 code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
@@ -45,7 +52,7 @@ class FinnhubProvider:
             ) from exc
         except Exception as exc:
             if get_exception_status_code(exc) is not None:
-                raise self._map_api_exception(exc) from exc
+                raise self._map_api_exception(exc, access_denied_error) from exc
             raise MarketDataError(
                 code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
                 message="Market data provider is temporarily unavailable.",
@@ -70,7 +77,11 @@ class FinnhubProvider:
         self._sdk_client.API_URL = self._settings.finnhub_api_base_url.rstrip("/")
         return self._sdk_client
 
-    def _map_api_exception(self, exc: BaseException) -> MarketDataError:
+    def _map_api_exception(
+        self,
+        exc: BaseException,
+        access_denied_error: MarketDataError,
+    ) -> MarketDataError:
         status_code = get_exception_status_code(exc)
         if status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             raise MarketDataError(
@@ -80,10 +91,7 @@ class FinnhubProvider:
             )
 
         if status_code in {status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN}:
-            raise MarketDataError(
-                code=MarketDataErrorCode.CHART_UNAVAILABLE,
-                message="Historical chart data is unavailable for this request.",
-            )
+            raise access_denied_error
 
         if status_code is not None and status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
             raise MarketDataError(
@@ -95,6 +103,20 @@ class FinnhubProvider:
             code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
             message="Market data provider could not complete the request.",
         )
+
+
+def provider_access_denied_error() -> MarketDataError:
+    return MarketDataError(
+        code=MarketDataErrorCode.PROVIDER_UNAVAILABLE,
+        message="Market data provider could not complete the request.",
+    )
+
+
+def chart_access_denied_error() -> MarketDataError:
+    return MarketDataError(
+        code=MarketDataErrorCode.CHART_UNAVAILABLE,
+        message="Historical chart data is unavailable for this request.",
+    )
 
 
 def get_exception_status_code(exc: BaseException) -> int | None:

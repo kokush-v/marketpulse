@@ -214,6 +214,10 @@ def test_history_rejects_intraday_resolution_before_provider_call():
         )
 
     assert response.status_code == 422
+    assert response.json() == {
+        "code": "validation_error",
+        "message": "Request validation failed.",
+    }
     assert provider.candle_requests == []
 
 
