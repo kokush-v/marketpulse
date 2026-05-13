@@ -39,7 +39,7 @@ The MVP is focused on a single user role: authenticated regular users. Every use
 
 ### Infrastructure
 
-- AWS Cognito for authentication.
+- Supabase Auth for authentication, accessed through the backend only.
 - Docker containers.
 - GitHub Actions for CI/CD.
 - GitHub Container Registry for images.
@@ -56,7 +56,7 @@ The MVP is focused on a single user role: authenticated regular users. Every use
 
 Core entities:
 
-- `users`: local representation of authenticated Cognito users.
+- `users`: local representation of authenticated Supabase Auth users.
 - `watchlists`: user-owned groups of tracked stocks.
 - `watchlist_symbols`: tickers assigned to watchlists.
 - `price_snapshots`: latest known quote per ticker.
@@ -83,7 +83,7 @@ Core entities:
 ## Backend Conventions
 
 - Use FastAPI dependency injection for auth, database sessions, and shared services.
-- Validate AWS Cognito JWTs on protected endpoints.
+- Validate Supabase Auth JWTs on protected endpoints.
 - Enforce row ownership in queries, not only at the route layer.
 - Use SQLAlchemy models and Alembic migrations for schema changes.
 - Use Pydantic schemas for request and response validation.

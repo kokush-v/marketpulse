@@ -5,7 +5,7 @@ context: |
   MVP scope: one authenticated regular user role. All watchlists, symbols, alerts, Telegram settings, and notification history are user-scoped.
   Backend: Python, FastAPI, SQLAlchemy, Alembic, PostgreSQL, Pytest, Ruff, OpenAPI/Swagger.
   Frontend: Next.js 15+ App Router, TypeScript, TailwindCSS, shadcn/ui, TanStack Query, Zustand, React Hook Form, Zod, Axios, Recharts.
-  Infrastructure: AWS Cognito, Docker, GitHub Actions, GitHub Container Registry, AWS ECS, AWS Secrets Manager, CloudWatch.
+  Infrastructure: Supabase Auth through the backend, Docker, GitHub Actions, GitHub Container Registry, AWS ECS, AWS Secrets Manager, CloudWatch.
   Integrations: Finnhub API for market data/news; Telegram Bot API for notifications.
   Architecture: backend is the trusted boundary for auth, authorization, provider calls, caching, alert evaluation, and notification delivery.
   Security: derive ownership from the authenticated user and enforce row-level ownership in backend queries. Never expose provider API keys or Telegram bot tokens to the frontend.

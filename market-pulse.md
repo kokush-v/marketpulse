@@ -50,7 +50,7 @@ The MVP is focused on a single user role: authenticated regular users. Each user
 | Area | Technology |
 | --- | --- |
 | Cloud | AWS |
-| Auth | AWS Cognito |
+| Auth | Supabase Auth through the backend |
 | Containers | Docker |
 | CI/CD | GitHub Actions |
 | Registry | GitHub Container Registry |
@@ -74,7 +74,7 @@ Stores authenticated application users.
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID / string | Internal user identifier |
-| cognito_sub | string | External auth identifier |
+| supabase_subject | string | External auth identifier |
 | email | string | Unique user email |
 | created_at | datetime | Creation timestamp |
 | updated_at | datetime | Update timestamp |
@@ -233,7 +233,7 @@ Tracks background task execution and failures.
 
 ## 4. Backend Features
 
-- Authentication with AWS Cognito and JWT validation.
+- Authentication with Supabase Auth and backend JWT validation.
 - User-scoped access control so each user works only with their own data.
 - CRUD for watchlists.
 - Add and remove ticker symbols inside a watchlist.
