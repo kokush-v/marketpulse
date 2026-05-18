@@ -107,3 +107,9 @@ When backend endpoint contracts change:
 - Do not read unrelated modules to infer hidden requirements.
 - Do not mark tasks complete before code and tests are done.
 - If implementation conflicts with the approved spec, stop and ask for clarification.
+
+# Next Step
+
+After implementation and relevant checks are complete, the next skill in the default delivery flow is `test-spec`.
+
+Use `test-spec` to compare the implementation against the approved OpenSpec change, verify completed tasks, run relevant checks, and report any gaps before opening a PR.

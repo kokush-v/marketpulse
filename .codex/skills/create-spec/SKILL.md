@@ -148,3 +148,9 @@ Spec delta files must:
 - Do not expand scope beyond the user request.
 - Do not create large multi-domain changes unless explicitly required.
 - If requirements are unclear, ask for clarification.
+
+# Next Step
+
+After this skill produces a valid OpenSpec change, the next skill in the default delivery flow is `create-linear-task`.
+
+Use `create-linear-task` to turn the approved change into a focused Linear issue with acceptance criteria, validation steps, and links back to `openspec/changes/<change-id>/`.

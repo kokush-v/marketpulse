@@ -143,3 +143,9 @@ Anything important for reviewers.
 - Do not perform large refactoring.
 - Do not claim checks passed unless they were actually run.
 - If checks cannot be run, state why.
+
+# Next Step
+
+After the implementation passes validation or the remaining gaps are resolved, the next skill in the default delivery flow is `create-pr`.
+
+Use `create-pr` to prepare a focused pull request linked to the OpenSpec change and Linear issue, with a truthful summary of checks, risks, and reviewer notes.

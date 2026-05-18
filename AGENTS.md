@@ -128,6 +128,11 @@ Tests
 - Write simple, explicit code.
 - Prefer readability over clever abstractions.
 - Use typed function signatures.
+- For FastAPI dependency injection, prefer modern typing style with `Annotated`:
+  - In route handlers and dependencies use `param: Annotated[Type, Depends(...)]`.
+  - Avoid `# noqa: B008` workarounds by preferring `Annotated` over default-argument `Depends()`.
+  - Prefer route-level metadata (`summary`, `responses`, `dependencies=[Depends(...)]`) when relevant.
+  - Keep this style consistent across new features and refactors.
 - Keep routes thin.
 - Keep business logic in services.
 - Keep database access in repositories when queries become non-trivial.

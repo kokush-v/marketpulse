@@ -119,3 +119,9 @@ If Linear tools are not available:
 
 - Output the issue title and body in Markdown.
 - State that the body should be pasted into Linear manually.
+
+# Next Step
+
+After the Linear issue is created from a valid OpenSpec change, the next skill in the default delivery flow is `implement-spec`.
+
+Use `implement-spec` to validate the same change again, follow `tasks.md` in order, implement only approved scope, and update tests together with the code.

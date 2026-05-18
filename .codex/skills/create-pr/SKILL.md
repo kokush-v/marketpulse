@@ -153,3 +153,11 @@ If GitHub tools are not available:
 - Do not hide failed or skipped checks.
 - Do not create a PR with unrelated changes.
 - Do not mark unchecked items as completed.
+
+# Next Step
+
+This is the final skill in the default delivery flow:
+
+`create-spec` -> `create-linear-task` -> `implement-spec` -> `test-spec` -> `create-pr`
+
+After the PR is created, start a new cycle with `create-spec` only when a new product or technical change needs to be proposed.
