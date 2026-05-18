@@ -1,5 +1,6 @@
 import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Annotated, Any
 
 import jwt
@@ -14,7 +15,6 @@ from app.features.auth.service import AuthService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 credentials_dependency = Depends(bearer_scheme)
-jwks_client = PyJWKClient(settings.supabase_jwks_url)
 
 
 @dataclass(frozen=True)
@@ -23,8 +23,13 @@ class AuthenticatedIdentity:
     email: str
 
 
+@lru_cache(maxsize=1)
+def get_jwks_client() -> PyJWKClient:
+    return PyJWKClient(settings.supabase_jwks_url)
+
+
 def _decode_access_token(token: str) -> dict[str, Any]:
-    signing_key = jwks_client.get_signing_key_from_jwt(token).key
+    signing_key = get_jwks_client().get_signing_key_from_jwt(token).key
     return jwt.decode(
         token,
         signing_key,
