@@ -2,6 +2,7 @@ import "./globals.css";
 
 import type { Metadata } from "next";
 
+import { AuthSessionSync } from "@/shared/components/auth-session-sync";
 import { QueryProvider } from "@/shared/providers/query-provider";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <AuthSessionSync />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

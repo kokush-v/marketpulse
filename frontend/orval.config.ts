@@ -1,6 +1,10 @@
 import { defineConfig } from "orval";
 
-const inputTarget = process.env.MARKETPULSE_OPENAPI_URL ?? "./marketpulse-openapi.json";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const inputTarget =
+  process.env.MARKETPULSE_OPENAPI_TARGET ??
+  process.env.MARKETPULSE_OPENAPI_URL ??
+  `${apiBaseUrl.replace(/\/+$/, "")}/openapi.json`;
 
 export default defineConfig({
   marketpulse: {

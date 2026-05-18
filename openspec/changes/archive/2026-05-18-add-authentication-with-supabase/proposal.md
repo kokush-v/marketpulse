@@ -9,12 +9,15 @@ Define an `auth` capability that standardizes:
 - supported sign-in methods: email/password and Google OAuth
 - user lifecycle flows: sign up, sign in, sign out, password reset, and email verification handling
 - backend enforcement of Supabase JWT validation for protected API routes
+- frontend-driven Google OAuth initiation and callback handling with backend user synchronization
 - frontend route protection so product functionality is available only to authenticated users
 - explicit unauthorized handling behavior for invalid or missing sessions
 
 ## Scope
 In scope:
 - Auth requirements for email/password and Google OAuth login
+- Frontend callback handling for Google OAuth session establishment
+- Backend synchronization of local user records after successful Google OAuth authentication
 - Account lifecycle flows (registration, login, logout, password reset, email verification)
 - Protected backend API behavior for functional endpoints
 - Frontend auth pages and route guards for product screens
@@ -33,6 +36,7 @@ Affected domains:
 Primary user workflows:
 - New user account creation and verification
 - Returning user sign-in via password or Google
+- Returning user completion of Google OAuth callback and local account synchronization
 - Password recovery
 - Accessing protected product routes only while authenticated
 

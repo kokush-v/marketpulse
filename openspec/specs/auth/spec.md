@@ -1,5 +1,8 @@
-## ADDED Requirements
+# auth Specification
 
+## Purpose
+Define how MarketPulse authenticates users with Supabase Auth, protects product routes and backend APIs, synchronizes local user identity, and returns users to a valid unauthenticated state when sessions become invalid.
+## Requirements
 ### Requirement: Support Email/Password and Google Authentication
 The system SHALL support user authentication through both email/password credentials and Google OAuth.
 
@@ -12,6 +15,11 @@ The system SHALL support user authentication through both email/password credent
 - **Given** a user selects Google sign-in
 - **When** the OAuth flow completes successfully
 - **Then** the system authenticates the user and establishes an authenticated session
+
+#### Scenario: Google sign-in completes through frontend callback and backend sync
+- **Given** a user returns from Google OAuth to the frontend callback route
+- **When** the frontend establishes a Supabase session and calls the backend with the resulting access token
+- **Then** the backend validates the token and creates or updates the local authenticated user mapping from token identity
 
 ### Requirement: Provide Full Account Lifecycle Flows
 The system SHALL provide account lifecycle flows for sign up, sign in, sign out, password reset, and email verification handling.
