@@ -1,7 +1,11 @@
+import { clearSession, getAccessToken } from "@/shared/lib/auth";
+
 type OrvalRequest = {
   url: string;
   method?: string;
   signal?: AbortSignal;
+  headers?: HeadersInit;
+  data?: unknown;
 };
 
 function resolveApiUrl(url: string): string {
@@ -27,19 +31,30 @@ export async function customFetch<T>(
   const resolvedMethod =
     typeof request === "string" ? options?.method : request.method ?? options?.method;
   const resolvedSignal = typeof request === "string" ? options?.signal : request.signal;
+  const requestHeaders = typeof request === "string" ? undefined : request.headers;
+  const requestBody =
+    typeof request === "string" ? options?.body : request.data !== undefined ? JSON.stringify(request.data) : options?.body;
   const targetUrl = resolveApiUrl(resolvedUrl);
+  const accessToken = typeof window !== "undefined" ? getAccessToken() : null;
 
   const response = await fetch(targetUrl, {
     ...options,
     method: resolvedMethod,
     signal: resolvedSignal,
+    body: requestBody,
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(requestHeaders ?? {}),
       ...(options?.headers ?? {}),
     },
   });
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      await clearSession();
+      window.location.href = "/sign-in";
+    }
     throw new Error(`Request failed with status ${response.status}`);
   }
 

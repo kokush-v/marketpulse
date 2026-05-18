@@ -5,4 +5,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './authSessionResponse';
+export * from './currentUserResponse';
+export * from './hTTPValidationError';
 export * from './healthResponse';
+export * from './resetPasswordRequest';
+export * from './resetPasswordRequestRedirectTo';
+export * from './signInRequest';
+export * from './signOutResponse';
+export * from './signUpRequest';
+export * from './syncUserResponse';
+export * from './updatePasswordRequest';
+export * from './validationError';
+export * from './validationErrorCtx';
+export * from './validationErrorLocItem';

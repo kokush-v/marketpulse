@@ -20,22 +20,31 @@ This change introduces end-to-end authentication behavior based on Supabase Auth
 
 ### 4. Supported Auth Flows
 - Email/password sign-up and sign-in.
-- Google OAuth sign-in.
+- Google OAuth sign-in initiated on the frontend through the Supabase browser client.
 - Sign-out.
 - Password reset flow (request + completion).
 - Email verification handling for sign-up lifecycle.
+
+### 5. Google OAuth Ownership of Responsibilities
+- Frontend is responsible for starting Google OAuth with Supabase and completing the callback in the same browser session.
+- Frontend callback handling exchanges the returned auth code for a Supabase session using PKCE-compatible browser flow support.
+- Backend does not act as the Google OAuth redirect target for the user-facing flow.
+- Backend exposes an authenticated sync endpoint that provisions or refreshes the local `users` record after the frontend has obtained a valid Supabase access token.
 
 ## Security and Failure Handling
 - Missing, malformed, expired, or invalid tokens result in unauthorized response for protected backend endpoints.
 - Frontend handles unauthorized responses by clearing stale session assumptions and routing user back to sign-in.
 - No role model is introduced; access is binary (authenticated vs unauthenticated) for MVP.
+- The backend sync endpoint derives identity only from the validated Supabase JWT and does not trust user identity fields supplied by the frontend body.
 
 ## Data and Ownership Notes
 - The local `users` representation remains the application mapping layer tied to Supabase identity.
 - User-owned resource access is always scoped by authenticated user identity from token context.
 - Client-supplied ownership identifiers are not trusted where user identity can be derived server-side.
+- Local user synchronization after OAuth may create a new local user record or update the known email for an existing mapping.
 
 ## API and Client Contract Notes
+- Auth API adds a backend synchronization endpoint for frontend-obtained Supabase sessions.
 - If implementation introduces or modifies auth-related backend endpoints/schemas, OpenAPI schema updates must be reflected and Orval clients regenerated in the same implementation change.
 
 ## Risks and Rollback Considerations
