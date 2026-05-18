@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -15,7 +16,7 @@ import { Separator } from "@/shared/components/ui/separator";
 import { applySession, hasSession } from "@/shared/lib/auth";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
-export default function SignInPage() {
+function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
@@ -139,5 +140,19 @@ export default function SignInPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-screen max-w-3xl items-center px-6">
+          Loading sign in...
+        </main>
+      }
+    >
+      <SignInPageContent />
+    </Suspense>
   );
 }

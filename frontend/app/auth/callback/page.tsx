@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -7,7 +8,7 @@ import { syncUserAuthSyncUserPost } from "@/src/api/generated/auth/auth";
 import { saveSupabaseSession } from "@/shared/lib/auth";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
-export default function AuthCallbackPage() {
+function AuthCallbackPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
@@ -69,5 +70,22 @@ export default function AuthCallbackPage() {
         {error ?? "We are confirming your Google session and preparing your workspace."}
       </p>
     </main>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-3 px-6 text-center">
+          <h1 className="text-2xl font-semibold">Finalizing sign in</h1>
+          <p className="text-slate-600">
+            We are confirming your Google session and preparing your workspace.
+          </p>
+        </main>
+      }
+    >
+      <AuthCallbackPageContent />
+    </Suspense>
   );
 }
