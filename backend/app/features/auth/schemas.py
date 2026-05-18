@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 
 
 class CurrentUserResponse(BaseModel):
@@ -22,22 +22,22 @@ class SignOutResponse(BaseModel):
 
 
 class SignUpRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8)
 
 
 class SignInRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8)
 
 
 class ResetPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
     redirect_to: str | None = None
 
 
 class UpdatePasswordRequest(BaseModel):
-    password: str
+    password: str = Field(min_length=8)
 
 
 class AuthSessionResponse(BaseModel):

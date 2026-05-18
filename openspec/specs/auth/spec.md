@@ -1,7 +1,7 @@
 # auth Specification
 
 ## Purpose
-TBD - created by archiving change add-authentication-with-supabase. Update Purpose after archive.
+Define how MarketPulse authenticates users with Supabase Auth, protects product routes and backend APIs, synchronizes local user identity, and returns users to a valid unauthenticated state when sessions become invalid.
 ## Requirements
 ### Requirement: Support Email/Password and Google Authentication
 The system SHALL support user authentication through both email/password credentials and Google OAuth.
@@ -85,4 +85,3 @@ The frontend SHALL handle unauthorized API outcomes by transitioning users to a 
 - **Given** a user currently navigating protected product screens
 - **When** protected API responses indicate unauthorized access
 - **Then** the frontend treats the session as unauthenticated and routes the user to sign-in
-

@@ -267,3 +267,23 @@ def test_auth_provider_weak_password_includes_reasons() -> None:
         "code": "weak_password",
         "reasons": ["too short"],
     }
+
+
+def test_sign_up_request_rejects_invalid_email_and_short_password() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/sign-up",
+            json={"email": "not-an-email", "password": "short"},
+        )
+
+    assert response.status_code == 422
+
+
+def test_reset_password_request_rejects_invalid_email() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/auth/reset-password",
+            json={"email": "not-an-email"},
+        )
+
+    assert response.status_code == 422
