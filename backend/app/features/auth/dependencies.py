@@ -40,18 +40,14 @@ async def get_current_user(
     auth_service: Annotated[AuthService, Depends()],
 ) -> User:
     identity = get_authenticated_identity(credentials)
-    return await auth_service.get_authenticated_user(
-        supabase_user_id=identity.supabase_user_id
-    )
+    return await auth_service.get_authenticated_user(supabase_user_id=identity.supabase_user_id)
 
 
 def get_authenticated_identity(
     credentials: HTTPAuthorizationCredentials | None,
 ) -> AuthenticatedIdentity:
     if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing access token")
 
     try:
         payload = _decode_access_token(credentials.credentials)

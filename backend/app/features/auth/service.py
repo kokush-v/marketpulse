@@ -96,23 +96,17 @@ class AuthService:
     async def _get_or_create_user(
         self, supabase_user_id: uuid.UUID, email: str
     ) -> tuple[User, bool]:
-        existing = await self.repository.get_user_by_supabase_id(
-            supabase_user_id=supabase_user_id
-        )
+        existing = await self.repository.get_user_by_supabase_id(supabase_user_id=supabase_user_id)
         if existing:
             normalized_email = email.lower()
             if existing.email != normalized_email:
                 existing = await self.repository.update_user_email(existing, normalized_email)
             return existing, False
-        user = await self.repository.create_user(
-            supabase_user_id=supabase_user_id, email=email
-        )
+        user = await self.repository.create_user(supabase_user_id=supabase_user_id, email=email)
         return user, True
 
     async def get_authenticated_user(self, supabase_user_id: uuid.UUID) -> User:
-        existing = await self.repository.get_user_by_supabase_id(
-            supabase_user_id=supabase_user_id
-        )
+        existing = await self.repository.get_user_by_supabase_id(supabase_user_id=supabase_user_id)
         if existing is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -127,9 +121,7 @@ class AuthService:
         )
         return user
 
-    async def sync_local_user(
-        self, supabase_user_id: uuid.UUID, email: str
-    ) -> tuple[User, bool]:
+    async def sync_local_user(self, supabase_user_id: uuid.UUID, email: str) -> tuple[User, bool]:
         return await self._get_or_create_user(
             supabase_user_id=supabase_user_id,
             email=email,
@@ -155,9 +147,7 @@ class AuthService:
             expires_in=getattr(session, "expires_in", 3600),
         )
 
-    async def _ensure_local_user_from_auth_response(
-        self, auth_response: object
-    ) -> None:
+    async def _ensure_local_user_from_auth_response(self, auth_response: object) -> None:
         user = getattr(auth_response, "user", None)
         if user is None:
             session = getattr(auth_response, "session", None)
@@ -179,9 +169,7 @@ class AuthService:
 
     async def register(self, email: str, password: str) -> AuthSessionResponse:
         try:
-            response = await self.supabase.auth.sign_up(
-                {"email": email, "password": password}
-            )
+            response = await self.supabase.auth.sign_up({"email": email, "password": password})
         except Exception as exc:
             self._raise_auth_provider_error(
                 exc,
@@ -203,9 +191,7 @@ class AuthService:
         await self._ensure_local_user_from_auth_response(response)
         return self._extract_session_payload(response)
 
-    async def request_password_reset(
-        self, email: str, redirect_to: str | None
-    ) -> SignOutResponse:
+    async def request_password_reset(self, email: str, redirect_to: str | None) -> SignOutResponse:
         options: dict[str, str] | None = None
         if redirect_to:
             options = {"redirect_to": redirect_to}
