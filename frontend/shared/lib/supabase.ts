@@ -8,21 +8,21 @@ export class SupabaseBrowserClient {
   static getInstance(): SupabaseClient {
     if (SupabaseBrowserClient.instance) {
       return SupabaseBrowserClient.instance;
-		}
+    }
 
-		const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-		const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-		if (!supabaseUrl || !supabasePublishableKey) {
-			throw new Error("Supabase environment variables are not configured");
-		}
+    if (!supabaseUrl || !supabasePublishableKey) {
+      throw new Error("Supabase environment variables are not configured");
+    }
 
-		SupabaseBrowserClient.instance = createClient(supabaseUrl, supabasePublishableKey, {
-			auth: {
-				detectSessionInUrl: false,
-				flowType: "pkce",
-			},
-		});
+    SupabaseBrowserClient.instance = createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        detectSessionInUrl: false,
+        flowType: "pkce",
+      },
+    });
 
     return SupabaseBrowserClient.instance;
   }
