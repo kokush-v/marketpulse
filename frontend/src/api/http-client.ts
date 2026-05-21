@@ -6,6 +6,7 @@ type OrvalRequest = {
   signal?: AbortSignal;
   headers?: HeadersInit;
   data?: unknown;
+  params?: Record<string, unknown>;
 };
 
 function resolveApiUrl(url: string): string {
@@ -21,6 +22,34 @@ function resolveApiUrl(url: string): string {
   const normalizedBase = baseUrl.replace(/\/+$/, "");
   const normalizedPath = url.startsWith("/") ? url : `/${url}`;
   return `${normalizedBase}${normalizedPath}`;
+}
+
+function appendQueryParams(url: string, params?: Record<string, unknown>): string {
+  if (!params) {
+    return url;
+  }
+
+  const target = new URL(url, "http://localhost");
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        target.searchParams.append(key, String(item));
+      }
+      continue;
+    }
+
+    target.searchParams.set(key, String(value));
+  }
+
+  if (/^https?:\/\//i.test(url)) {
+    return target.toString();
+  }
+
+  return `${target.pathname}${target.search}`;
 }
 
 function toDefinedHeaderEntries(headers?: HeadersInit): [string, string][] {
@@ -43,7 +72,8 @@ export async function customFetch<T>(
   const requestHeaders = typeof request === "string" ? undefined : request.headers;
   const requestBody =
     typeof request === "string" ? options?.body : request.data !== undefined ? JSON.stringify(request.data) : options?.body;
-  const targetUrl = resolveApiUrl(resolvedUrl);
+  const resolvedParams = typeof request === "string" ? undefined : request.params;
+  const targetUrl = appendQueryParams(resolveApiUrl(resolvedUrl), resolvedParams);
   const accessToken = typeof window !== "undefined" ? getAccessToken() : null;
   const headers = new Headers({
     "Content-Type": "application/json",
@@ -74,7 +104,25 @@ export async function customFetch<T>(
       await clearSession();
       window.location.href = "/sign-in";
     }
-    throw new Error(`Request failed with status ${response.status}`);
+
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const payload = (await response.json()) as
+        | { message?: string; detail?: string | { message?: string } }
+        | undefined;
+
+      if (payload?.message) {
+        message = payload.message;
+      } else if (typeof payload?.detail === "string") {
+        message = payload.detail;
+      } else if (payload?.detail && typeof payload.detail === "object" && payload.detail.message) {
+        message = payload.detail.message;
+      }
+    } catch {
+      // Keep the default status-based error message when the payload is not JSON.
+    }
+
+    throw new Error(message);
   }
 
   if (response.status === 204) {

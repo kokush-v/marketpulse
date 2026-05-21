@@ -62,7 +62,7 @@ The MVP is focused on a single user role: authenticated regular users. Each user
 
 | Integration | Purpose |
 | --- | --- |
-| Finnhub API | Quotes, historical data, company news |
+| CoinGecko API | Crypto prices, historical data, market metadata |
 | Telegram Bot API | Notifications and bot interaction |
 
 ## 3. Database Models

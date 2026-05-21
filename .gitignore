@@ -12,6 +12,11 @@ out/
 tsconfig.tsbuildinfo
 npm-debug.log*
 frontend/src/api/generated/
+!frontend/src/api/generated/
+frontend/src/api/generated/*
+!frontend/src/api/generated/models/
+frontend/src/api/generated/models/*
+!frontend/src/api/generated/models/index.ts
 
 # Local environment
 **/.env

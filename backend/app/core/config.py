@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     supabase_jwt_audience: str = "authenticated"
     frontend_url: str = "http://localhost:3000"
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    market_data_api_base_url: str = "http://localhost:3001"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
