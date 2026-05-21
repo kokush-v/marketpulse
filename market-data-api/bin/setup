@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! bundle -v >/dev/null 2>&1; then
+  echo "Bundler is not available for the active Ruby. Install it with: gem install bundler"
+  exit 1
+fi
+
+bundle install

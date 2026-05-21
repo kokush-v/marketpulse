@@ -1,5 +1,11 @@
-import { AuthGuard } from "@/shared/components/auth-guard";
+import type { ReactNode } from "react";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <AuthGuard>{children}</AuthGuard>;
+import { SidebarProvider } from "@/shared/components/ui/sidebar";
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background text-foreground">{children}</div>
+    </SidebarProvider>
+  );
 }

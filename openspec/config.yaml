@@ -6,7 +6,7 @@ project:
   methodology: spec-driven-development
 
 context: |
-  Project: MarketPulse, a web application for authenticated users to manage stock watchlists, view market data and company news, configure alert rules, and receive Telegram notifications and daily digests.
+  Project: MarketPulse, a web application for authenticated users to manage crypto watchlists, view market data and crypto news, configure alert rules, and receive Telegram notifications and daily digests.
 
   MVP scope: one authenticated regular user role. All watchlists, symbols, alerts, Telegram settings, and notification history are user-scoped.
 
@@ -16,13 +16,13 @@ context: |
 
   Infrastructure: Supabase Auth through the backend, Docker, GitHub Actions, GitHub Container Registry, AWS ECS, AWS Secrets Manager, AWS CloudWatch.
 
-  Integrations: Finnhub API for market data and news; Telegram Bot API through aiogram for async notification delivery and Telegram account linking.
+  Integrations: crypto market data providers for market data and news; Telegram Bot API through aiogram for async notification delivery and Telegram account linking.
 
   Architecture: the backend is the trusted boundary for authentication, authorization, provider calls, caching, alert evaluation, and notification delivery.
 
   Security: derive ownership from the authenticated user and enforce row-level ownership in backend queries. Never expose provider API keys, Supabase service-role keys, or Telegram bot tokens to the frontend.
 
-  Data conventions: stock tickers are normalized to uppercase; duplicate symbols inside the same watchlist are prevented; duplicate news articles by URL are prevented.
+  Data conventions: tracked asset symbols are normalized to uppercase; duplicate symbols inside the same watchlist are prevented; duplicate news articles by URL are prevented.
 
   OpenSpec domains: auth, watchlists, market-data, news, alerts, telegram, notifications, background-jobs, api-client-generation.
 
