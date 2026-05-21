@@ -35,7 +35,7 @@ module Api
         assert_equal "rate_limited", body.dig("error", "code")
       end
 
-      test "returns error message when the route crashes unexpectedly" do
+      test "returns a safe error response when the route crashes unexpectedly" do
         Rails.application.config.x.market_data_client_factory = lambda {
           raise StandardError, "unexpected crash for debugging"
         }
@@ -45,7 +45,7 @@ module Api
         assert_response :internal_server_error
         body = JSON.parse(response.body)
         assert_equal "internal_error", body.dig("error", "code")
-        assert_equal "unexpected crash for debugging", body.dig("error", "detail")
+        assert_equal "An unexpected error occurred while loading market data.", body.dig("error", "detail")
       end
 
       test "reuses cached overview payload within the cache window" do

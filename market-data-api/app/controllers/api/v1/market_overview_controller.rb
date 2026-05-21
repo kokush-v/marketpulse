@@ -39,7 +39,7 @@ module Api
           status: :too_many_requests,
           code: "rate_limited",
           title: "Crypto market data is temporarily busy",
-          detail: error.message
+          detail: "Please try again in a few moments."
         )
       end
 
@@ -49,7 +49,7 @@ module Api
           status: :bad_gateway,
           code: "provider_error",
           title: "Crypto market data is temporarily unavailable",
-          detail: error.message
+          detail: "Provider data is temporarily unavailable."
         )
       end
 
@@ -59,7 +59,7 @@ module Api
           status: :internal_server_error,
           code: "internal_error",
           title: "Market overview request failed",
-          detail: error.message.presence || error.class.name
+          detail: "An unexpected error occurred while loading market data."
         )
       end
 

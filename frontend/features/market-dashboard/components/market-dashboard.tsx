@@ -710,63 +710,47 @@ function DashboardErrorState({
 	isRefreshing: boolean;
 }) {
 	return (
-		<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm">
-			<div className="w-full max-w-md space-y-8 text-center px-4">
-				{/* Icon with spinner */}
-				<div className="flex justify-center">
-					<div className="relative">
-						{/* Animated ring when loading */}
-						{isRefreshing && (
-							<>
-								<div
-									className="absolute inset-0 rounded-full border-4 border-destructive/10 animate-spin"
-									style={{ animationDuration: "3s" }}></div>
-								<div
-									className="absolute inset-2 rounded-full border-2 border-destructive/20 animate-spin"
-									style={{ animationDuration: "2s", animationDirection: "reverse" }}></div>
-							</>
-						)}
-						<div className="absolute inset-0 bg-destructive/10 blur-3xl rounded-full"></div>
-						<div className="relative inline-flex items-center justify-center size-24 rounded-full bg-destructive/5 border border-destructive/15">
+		<div className="px-4 lg:px-6">
+			<Card className="border-dashed border-destructive/30 bg-card/50 backdrop-blur-sm">
+				<CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex items-start gap-4">
+						<div className="inline-flex size-12 items-center justify-center rounded-full border border-destructive/15 bg-destructive/5">
 							<CircleAlert
-								className={cn("size-12 text-destructive/60", isRefreshing && "animate-pulse")}
+								className={cn("size-6 text-destructive/60", isRefreshing && "animate-pulse")}
 								strokeWidth={1.5}
 							/>
 						</div>
+						<div className="space-y-1.5">
+							<p className="text-sm font-semibold text-foreground">
+								{isRefreshing ? "Refreshing market data" : "Market data temporarily unavailable"}
+							</p>
+							<p className="text-sm text-muted-foreground">
+								{isRefreshing
+									? "Attempting to restore the public crypto snapshot."
+									: message.includes("403")
+										? "This provider plan cannot return the requested market data right now."
+										: message || "The dashboard shell is still available while the data feed recovers."}
+							</p>
+							<p className="text-xs text-muted-foreground/70">
+								Navigation and dashboard layout remain available during provider issues.
+							</p>
+						</div>
 					</div>
-				</div>
-
-				{/* Text */}
-				<div className="space-y-3">
-					<h1 className="text-3xl font-bold tracking-tight">
-						{isRefreshing ? "Checking..." : "Data feed offline"}
-					</h1>
-					<p className="text-sm text-muted-foreground/80 leading-relaxed">
-						{isRefreshing
-							? "Attempting to restore connection to market data..."
-							: message.includes("403")
-								? "We don't have access to market data right now."
-								: message || "Unable to connect to market data."}
-					</p>
-				</div>
-
-				{/* Button */}
-				<Button onClick={onRetry} disabled={isRefreshing} size="lg" className="gap-2">
-					{isRefreshing ? (
-						<>
-							<RefreshCw className="size-4 animate-spin" />
-							Checking...
-						</>
-					) : (
-						<>
-							<RefreshCw className="size-4" />
-							Try again
-						</>
-					)}
-				</Button>
-
-				<p className="text-xs text-muted-foreground/50">Dashboard remains visible during connection issues.</p>
-			</div>
+					<Button onClick={onRetry} disabled={isRefreshing} className="gap-2 self-start sm:self-center">
+						{isRefreshing ? (
+							<>
+								<RefreshCw className="size-4 animate-spin" />
+								Checking...
+							</>
+						) : (
+							<>
+								<RefreshCw className="size-4" />
+								Try again
+							</>
+						)}
+					</Button>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

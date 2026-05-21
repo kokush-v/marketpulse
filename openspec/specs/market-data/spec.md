@@ -1,7 +1,7 @@
 # market-data Specification
 
 ## Purpose
-TBD - created by archiving change add-public-market-dashboard. Update Purpose after archive.
+Define the public crypto market dashboard contract, including the dashboard shell, the market overview experience, and the backend-served market-data flow that powers it.
 ## Requirements
 ### Requirement: Provide a Public Dashboard Shell for Crypto Market Data
 The system SHALL provide a public dashboard shell with navigation, header, and content regions that establishes the layout pattern for current and future crypto dashboard tabs.
@@ -65,4 +65,3 @@ The system SHALL keep the market dashboard publicly accessible while allowing op
 - **When** the user opens the public dashboard
 - **Then** the dashboard MAY show watchlist-related content as an additive module without requiring a separate protected route
 - **And** any watchlist-related asset terminology shall align with crypto assets rather than stocks
-
