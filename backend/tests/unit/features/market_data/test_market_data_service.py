@@ -7,9 +7,7 @@ from app.features.market_data.service import MarketDataService, UpstreamMarketDa
 
 
 class StubResponse:
-    def __init__(
-        self, status_code: int, payload: dict[str, object] | None = None
-    ) -> None:
+    def __init__(self, status_code: int, payload: dict[str, object] | None = None) -> None:
         self.status_code = status_code
         self._payload = payload or {}
 
@@ -58,9 +56,7 @@ async def test_market_data_service_returns_validated_payload(
     monkeypatch.setattr(
         httpx,
         "AsyncClient",
-        lambda **kwargs: StubAsyncClient(
-            response=StubResponse(status_code=200, payload=payload)
-        ),
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
     )
 
     service = MarketDataService(base_url="http://localhost:3001")
@@ -80,9 +76,7 @@ async def test_market_data_service_maps_rate_limited_upstream(
         lambda **kwargs: StubAsyncClient(
             response=StubResponse(
                 status_code=429,
-                payload={
-                    "error": {"detail": "Crypto market data is temporarily busy."}
-                },
+                payload={"error": {"detail": "Crypto market data is temporarily busy."}},
             )
         ),
     )
@@ -105,9 +99,7 @@ async def test_market_data_service_maps_timeout(
     monkeypatch.setattr(
         httpx,
         "AsyncClient",
-        lambda **kwargs: StubAsyncClient(
-            error=httpx.ReadTimeout("Timed out", request=request)
-        ),
+        lambda **kwargs: StubAsyncClient(error=httpx.ReadTimeout("Timed out", request=request)),
     )
 
     service = MarketDataService(base_url="http://localhost:3001")
