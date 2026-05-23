@@ -13,8 +13,8 @@ from app.features.market_data.schemas import (
     RelatedNewsItemResponse,
 )
 from app.features.watchlists.models import WatchlistAsset
-from app.features.watchlists.schemas import AddWatchlistAssetRequest
 from app.features.watchlists.repository import WatchlistAssetAlreadySavedError
+from app.features.watchlists.schemas import AddWatchlistAssetRequest
 from app.features.watchlists.service import WatchlistService, WatchlistServiceError
 
 
