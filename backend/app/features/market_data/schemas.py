@@ -1,10 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CryptoChartPointResponse(BaseModel):
     time: str
     price: float
     volume: float
+
+
+class RelatedNewsItemResponse(BaseModel):
+    title: str
+    summary: str
+    url: str
+    published_at: str
+    source: str
 
 
 class FeaturedAssetResponse(BaseModel):
@@ -24,6 +32,7 @@ class FeaturedAssetResponse(BaseModel):
     description: str
     categories: list[str]
     chart: list[CryptoChartPointResponse]
+    related_news: list[RelatedNewsItemResponse] = Field(default_factory=list)
 
 
 class CryptoMoverResponse(BaseModel):
@@ -35,6 +44,20 @@ class CryptoMoverResponse(BaseModel):
     price_change_percentage_24h: float
     market_cap_rank: int
     image_url: str
+
+
+class AssetSearchResultResponse(BaseModel):
+    asset_id: str
+    symbol: str
+    name: str
+    market_cap_rank: int
+    current_price: float
+    price_change_percentage_24h: float
+    image_url: str
+
+
+class AssetSearchResponse(BaseModel):
+    items: list[AssetSearchResultResponse]
 
 
 class MarketOverviewResponse(BaseModel):

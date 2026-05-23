@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
 	Activity,
 	BadgeCheck,
-	Bell,
 	ChevronsUpDown,
 	LayoutGrid,
 	LineChart,
@@ -30,7 +30,7 @@ import {
 } from "@/shared/components/ui/sidebar";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -46,7 +46,7 @@ const navGroups = [
 	{
 		label: "General",
 		items: [
-			{ title: "Overview", icon: LayoutGrid, href: "/dashboard", active: true },
+			{ title: "Overview", icon: LayoutGrid, href: "/dashboard" },
 			{ title: "Market", icon: LineChart, href: "/dashboard", active: false, soon: true },
 			{ title: "Signals", icon: Activity, href: "/dashboard", active: false, soon: true },
 		],
@@ -54,7 +54,7 @@ const navGroups = [
 	{
 		label: "Workspace",
 		items: [
-			{ title: "Watchlists", icon: Star, href: "/dashboard", active: false, soon: true },
+			{ title: "Watchlist", icon: Star, href: "/watchlist" },
 			{ title: "Portfolio", icon: WalletCards, href: "/dashboard", active: false, soon: true },
 			{ title: "Settings", icon: Settings, href: "/dashboard", active: false, soon: true },
 		],
@@ -62,6 +62,8 @@ const navGroups = [
 ];
 
 export function AppSidebar() {
+	const pathname = usePathname();
+
 	return (
 		<Sidebar collapsible="icon">
 			<SidebarHeader>
@@ -91,7 +93,10 @@ export function AppSidebar() {
 								const Icon = item.icon;
 								return (
 									<SidebarMenuItem key={item.title}>
-										<SidebarMenuButton asChild isActive={item.active} tooltip={item.title}>
+										<SidebarMenuButton
+											asChild
+											isActive={pathname === item.href}
+											tooltip={item.title}>
 											<Link href={item.href} className="flex items-center gap-2">
 												<Icon />
 												<span>{item.title}</span>

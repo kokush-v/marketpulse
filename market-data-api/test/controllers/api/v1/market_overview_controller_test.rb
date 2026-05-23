@@ -21,8 +21,9 @@ module Api
         assert_response :success
         body = JSON.parse(response.body)
         assert_equal "market-data-api", body["source"]
-        assert_equal "Top 10 crypto assets by market capitalization", body["ranking_basis"]
-        assert_equal 5, body["featured_assets"].length
+        assert_equal "Top 25 crypto assets by market capitalization", body["ranking_basis"]
+        assert_equal 25, body["featured_assets"].length
+        assert_equal 1, body["featured_assets"].first["related_news"].length
       end
 
       test "returns rate limit response when provider is throttled" do
@@ -91,7 +92,16 @@ module Api
           {
             "categories" => ["Layer 1"],
             "description" => { "en" => "#{id} description" },
-            "links" => { "homepage" => ["https://example.com/#{id}"] }
+            "links" => { "homepage" => ["https://example.com/#{id}"] },
+            "status_updates" => [
+              {
+                "title" => "#{id.tr('-', ' ').split.map(&:capitalize).join(' ')} institutional update",
+                "description" => "<p>Demand stayed resilient across the latest session.</p>",
+                "article_url" => "https://example.com/#{id}/news",
+                "created_at" => "2026-05-21T12:00:00.000Z",
+                "project" => { "name" => "CoinGecko" }
+              }
+            ]
           }
         end
       end
