@@ -14,7 +14,7 @@ def test_market_overview_route_returns_public_payload() -> None:
         return {
             "generated_at": "2026-05-21T12:00:00Z",
             "source": "market-data-api",
-            "ranking_basis": "Top 10 crypto assets by market capitalization",
+            "ranking_basis": "Top 25 crypto assets by market capitalization",
             "hero_asset_id": "bitcoin",
             "featured_assets": [
                 {
@@ -33,6 +33,7 @@ def test_market_overview_route_returns_public_payload() -> None:
                     "homepage": "https://bitcoin.org",
                     "description": "Bitcoin is a decentralized digital asset.",
                     "categories": ["Smart Contract Platform"],
+                    "related_news": [],
                     "chart": [
                         {"time": "2026-05-20T10:00:00Z", "price": 104500.0, "volume": 0.0},
                         {"time": "2026-05-21T10:00:00Z", "price": 108250.12, "volume": 0.0},
@@ -77,7 +78,7 @@ def test_market_overview_route_returns_public_payload() -> None:
     market_data_service_module.MarketDataService.get_market_overview = original
 
     assert response.status_code == 200
-    assert response.json()["ranking_basis"] == "Top 10 crypto assets by market capitalization"
+    assert response.json()["ranking_basis"] == "Top 25 crypto assets by market capitalization"
     assert response.json()["hero_asset_id"] == "bitcoin"
 
 

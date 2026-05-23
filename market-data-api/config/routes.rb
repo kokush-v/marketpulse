@@ -4,6 +4,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       get "market-overview", to: "market_overview#show"
+      get "assets/search", to: "assets#search"
     end
   end
 end

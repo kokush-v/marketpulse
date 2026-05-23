@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './addStarredWatchlistAssetWatchlistsStarredAssetsPostParams';
+export * from './addWatchlistAssetRequest';
+export * from './addWatchlistAssetRequestImageUrl';
 export * from './authSessionResponse';
 export * from './authSessionResponseAccessToken';
 export * from './authSessionResponseExpiresIn';
@@ -15,14 +18,19 @@ export * from './cryptoMoverResponse';
 export * from './currentUserResponse';
 export * from './featuredAssetResponse';
 export * from './getMarketOverviewMarketDataOverviewGetParams';
+export * from './getStarredWatchlistAssetContextWatchlistsStarredAssetsAssetIdContextGetParams';
+export * from './getStarredWatchlistWatchlistsStarredGetParams';
 export * from './hTTPValidationError';
 export * from './healthResponse';
 export * from './marketOverviewErrorResponse';
 export * from './marketOverviewResponse';
 export * from './marketOverviewResponseHeroAssetId';
 export * from './marketOverviewResponseHeroChart';
+export * from './relatedNewsItemResponse';
+export * from './removeStarredWatchlistAssetWatchlistsStarredAssetsAssetIdDeleteParams';
 export * from './resetPasswordRequest';
 export * from './resetPasswordRequestRedirectTo';
+export * from './searchWatchlistAssetsWatchlistsAssetsSearchGetParams';
 export * from './signInRequest';
 export * from './signOutResponse';
 export * from './signUpRequest';
@@ -31,3 +39,13 @@ export * from './updatePasswordRequest';
 export * from './validationError';
 export * from './validationErrorCtx';
 export * from './validationErrorLocItem';
+export * from './watchlistAssetContextResponse';
+export * from './watchlistAssetResponse';
+export * from './watchlistAssetResponseImageUrl';
+export * from './watchlistAssetSearchResponse';
+export * from './watchlistAssetSearchResult';
+export * from './watchlistAssetSummaryResponse';
+export * from './watchlistErrorResponse';
+export * from './watchlistNewsItemResponse';
+export * from './watchlistOperationResponse';
+export * from './watchlistResponse';

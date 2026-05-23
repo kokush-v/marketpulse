@@ -7,19 +7,25 @@ module MarketOverview
 
       payload = OverviewBuilder.new(
         client: client,
-        ranked_asset_ids: %w[bitcoin ethereum tether ripple binancecoin solana usd-coin dogecoin tron cardano],
-        ranking_basis: "Top 10 crypto assets by market capitalization"
+        ranked_asset_ids: %w[
+          bitcoin ethereum tether ripple binancecoin solana usd-coin dogecoin tron cardano
+          wrapped-bitcoin chainlink avalanche-2 stellar sui shiba-inu hedera bitcoin-cash
+          litecoin toncoin polkadot uniswap leo-token monero pepe
+        ],
+        ranking_basis: "Top 25 crypto assets by market capitalization"
       ).call
 
       assert_equal "market-data-api", payload[:source]
-      assert_equal "Top 10 crypto assets by market capitalization", payload[:ranking_basis]
+      assert_equal "Top 25 crypto assets by market capitalization", payload[:ranking_basis]
       assert_equal "bitcoin", payload[:hero_asset_id]
-      assert_equal 5, payload[:featured_assets].size
+      assert_equal 25, payload[:featured_assets].size
+      assert_equal 1, payload[:featured_assets].first[:related_news].size
+      assert_equal "Bitcoin institutional update", payload[:featured_assets].first[:related_news].first[:title]
       assert_equal 4, payload[:top_gainers].size
       assert_equal 4, payload[:top_losers].size
       assert_equal 3, payload[:hero_chart].size
-      assert_equal %w[bitcoin ethereum tether ripple binancecoin solana usd-coin dogecoin tron cardano], client.coins_markets_calls.first
-      assert_equal %w[bitcoin ethereum tether ripple binancecoin], client.coin_details_calls
+      assert_equal 25, client.coins_markets_calls.first.size
+      assert_equal 25, client.coin_details_calls.size
     end
 
     class FakeCoinGeckoClient
@@ -58,7 +64,16 @@ module MarketOverview
         {
           "categories" => ["Layer 1", "Payments"],
           "description" => { "en" => "<p>#{id} description</p>" },
-          "links" => { "homepage" => ["https://example.com/#{id}"] }
+          "links" => { "homepage" => ["https://example.com/#{id}"] },
+          "status_updates" => [
+            {
+              "title" => "#{id.tr('-', ' ').split.map(&:capitalize).join(' ')} institutional update",
+              "description" => "<p>Demand stayed resilient across the latest session.</p>",
+              "article_url" => "https://example.com/#{id}/news",
+              "created_at" => "2026-05-21T12:00:00.000Z",
+              "project" => { "name" => "CoinGecko" }
+            }
+          ]
         }
       end
     end

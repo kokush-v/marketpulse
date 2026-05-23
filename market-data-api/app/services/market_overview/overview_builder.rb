@@ -1,7 +1,7 @@
 module MarketOverview
   class OverviewBuilder
-    FEATURED_ASSET_COUNT = 5
-    MOVERS_UNIVERSE_COUNT = 10
+    FEATURED_ASSET_COUNT = 25
+    MOVERS_UNIVERSE_COUNT = 25
     MOVERS_COUNT = 4
 
     def initialize(client:, ranked_asset_ids:, ranking_basis:)
@@ -59,7 +59,8 @@ module MarketOverview
         homepage: extract_homepage(details),
         description: extract_description(details),
         categories: Array(details&.dig("categories")).compact.first(3),
-        chart: normalize_chart(row.dig("sparkline_in_7d", "price"), row["last_updated"])
+        chart: normalize_chart(row.dig("sparkline_in_7d", "price"), row["last_updated"]),
+        related_news: extract_related_news(details)
       }
     end
 
@@ -108,6 +109,26 @@ module MarketOverview
       return "" if description == ""
 
       description.gsub(/<[^>]*>/, "").gsub(/\s+/, " ").strip
+    end
+
+    def extract_related_news(details)
+      Array(details&.dig("status_updates")).filter_map do |item|
+        title = item["title"].to_s.strip
+        description = item["description"].to_s.gsub(/<[^>]*>/, "").gsub(/\s+/, " ").strip
+        url = item["article_url"].to_s.strip
+        source = item.dig("project", "name").to_s.strip
+        published_at = item["created_at"].to_s.strip
+
+        next if title == "" || description == "" || url == ""
+
+        {
+          title: title,
+          summary: description,
+          url: url,
+          published_at: published_at,
+          source: source == "" ? "CoinGecko" : source
+        }
+      end.first(3)
     end
   end
 end

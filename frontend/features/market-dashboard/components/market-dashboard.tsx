@@ -2,18 +2,22 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
 	Activity,
 	ArrowRight,
 	BarChart3,
 	BriefcaseBusiness,
+	ChevronLeft,
+	ChevronRight,
 	CircleAlert,
 	Clock3,
 	ExternalLink,
 	LineChart,
 	LockKeyhole,
 	RefreshCw,
+	Star,
 	TrendingDown,
 	TrendingUp,
 } from "lucide-react";
@@ -21,6 +25,11 @@ import {
 import { AppSidebar } from "@/features/market-dashboard/components/app-sidebar";
 import { useMarketOverview } from "@/features/market-dashboard/hooks/use-market-overview";
 import type { FeaturedCard, MarketChartPoint, MarketMover } from "@/features/market-dashboard/lib/types";
+import {
+	getGetStarredWatchlistWatchlistsStarredGetQueryKey,
+	useAddStarredWatchlistAssetWatchlistsStarredAssetsPost,
+	useGetStarredWatchlistWatchlistsStarredGet,
+} from "@/src/api/generated/watchlists/watchlists";
 import { Badge } from "@/shared/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/shared/components/ui/breadcrumb";
 import { Button } from "@/shared/components/ui/button";
@@ -41,9 +50,50 @@ import { SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { hasSession } from "@/shared/lib/auth";
 import { cn } from "@/shared/lib/utils";
 
+const TOP_ASSETS_PER_SLIDE = 6;
+
 export function MarketDashboard() {
+	const queryClient = useQueryClient();
 	const { data, isLoading, isError, error, refetch, isFetching } = useMarketOverview();
 	const isAuthenticated = typeof window !== "undefined" && hasSession();
+	const watchlistQuery = useGetStarredWatchlistWatchlistsStarredGet(undefined, {
+		query: {
+			enabled: isAuthenticated,
+			staleTime: 30_000,
+			retry: 1,
+		},
+	});
+	const addWatchlistAssetMutation = useAddStarredWatchlistAssetWatchlistsStarredAssetsPost();
+	const savedAssetIds = new Set((watchlistQuery.data?.assets ?? []).map((asset) => asset.asset_id));
+	const trackedUniverseLabel = data?.ranking_basis.match(/Top\s+\d+/i)?.[0] ?? "Tracked";
+
+	const handleSaveFeaturedAsset = async (card: FeaturedCard) => {
+		if (!isAuthenticated) {
+			window.location.href = "/sign-in?next=/dashboard";
+			return;
+		}
+
+		if (savedAssetIds.has(card.id)) {
+			window.location.href = "/watchlist";
+			return;
+		}
+
+		try {
+			await addWatchlistAssetMutation.mutateAsync({
+				data: {
+					asset_id: card.id,
+					symbol: card.symbol,
+					name: card.name,
+					image_url: card.image_url,
+				},
+			});
+			await queryClient.invalidateQueries({
+				queryKey: getGetStarredWatchlistWatchlistsStarredGetQueryKey(),
+			});
+		} catch (saveError) {
+			console.error("Failed to save featured asset:", saveError);
+		}
+	};
 
 	return (
 		<>
@@ -93,7 +143,7 @@ export function MarketDashboard() {
 								<div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
 									<StatCard
 										label="Tracked universe"
-										value="Top 10"
+										value={trackedUniverseLabel}
 										badge="By market cap"
 										footer="Large-cap public assets"
 										footerDetail={data.ranking_basis}
@@ -130,9 +180,9 @@ export function MarketDashboard() {
 								footerDetail="Pin coins and build personal lists"
 								icon={<LockKeyhole className="size-4" />}
 								trend="up"
-								href={isAuthenticated ? "/dashboard" : "/sign-in"}
+								href={isAuthenticated ? "/watchlist" : "/sign-in"}
 								interactive
-								ctaLabel={isAuthenticated ? "Open your workspace" : "Unlock watchlists"}
+								ctaLabel={isAuthenticated ? "Open your watchlist" : "Unlock watchlists"}
 							/>
 						</div>
 
@@ -143,26 +193,16 @@ export function MarketDashboard() {
 
 								{/* Top assets + Activity */}
 								<div className="grid gap-4 px-4 lg:px-6 xl:grid-cols-[minmax(0,1.3fr)_420px]">
-									<Card className="border-border/30 bg-card/50 backdrop-blur-sm">
-										<CardHeader>
-											<CardTitle className="flex items-center gap-2">
-												<BarChart3 className="size-5 text-muted-foreground/60" />
-												Top assets
-											</CardTitle>
-											<CardDescription className="pb-2">
-												Large-cap crypto assets tracked in this public overview.
-											</CardDescription>
-										</CardHeader>
-										<CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-											{data.featured_assets.map((card) => (
-												<FeaturedAssetCard key={card.id} card={card} />
-											))}
-										</CardContent>
-									</Card>
+									<TopAssetsSlider
+										assets={data.featured_assets}
+										savedAssetIds={savedAssetIds}
+										savingAssetId={addWatchlistAssetMutation.variables?.data.asset_id}
+										isSaving={addWatchlistAssetMutation.isPending}
+										onSaveAsset={handleSaveFeaturedAsset}
+									/>
 									<ActivityCard
 										generatedAt={data.generated_at}
 										source={data.source}
-										rankingBasis={data.ranking_basis}
 										gainers={data.top_gainers}
 										losers={data.top_losers}
 									/>
@@ -179,6 +219,107 @@ export function MarketDashboard() {
 				</div>
 			</SidebarInset>
 		</>
+	);
+}
+
+function TopAssetsSlider({
+	assets,
+	savedAssetIds,
+	savingAssetId,
+	isSaving,
+	onSaveAsset,
+}: {
+	assets: FeaturedCard[];
+	savedAssetIds: Set<string>;
+	savingAssetId?: string;
+	isSaving: boolean;
+	onSaveAsset: (card: FeaturedCard) => void | Promise<void>;
+}) {
+	const slides = React.useMemo(() => {
+		const groups: FeaturedCard[][] = [];
+		for (let index = 0; index < assets.length; index += TOP_ASSETS_PER_SLIDE) {
+			groups.push(assets.slice(index, index + TOP_ASSETS_PER_SLIDE));
+		}
+		return groups;
+	}, [assets]);
+	const [activeSlide, setActiveSlide] = React.useState(0);
+
+	React.useEffect(() => {
+		setActiveSlide(0);
+	}, [slides.length]);
+
+	const canGoPrevious = activeSlide > 0;
+	const canGoNext = activeSlide < slides.length - 1;
+
+	return (
+		<Card className="self-start overflow-hidden border-border/30 bg-card/50 backdrop-blur-sm">
+			<CardHeader>
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div>
+						<CardTitle className="flex items-center gap-2">
+							<BarChart3 className="size-5 text-muted-foreground/60" />
+							Top assets
+						</CardTitle>
+						<CardDescription className="pb-2">
+							Large-cap crypto assets tracked in this public overview.
+						</CardDescription>
+					</div>
+					{slides.length > 1 ? (
+						<div className="flex items-center gap-2 self-start">
+							<Badge variant="outline" className="border-border/40 bg-background/40 px-2.5 text-xs text-muted-foreground">
+								{activeSlide + 1} / {slides.length}
+							</Badge>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="size-9 rounded-full border border-border/40 bg-background/40 text-muted-foreground hover:bg-accent/60 disabled:opacity-40"
+								onClick={() => setActiveSlide((current) => Math.max(0, current - 1))}
+								disabled={!canGoPrevious}
+								aria-label="Show previous top assets">
+								<ChevronLeft className="size-4" />
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="size-9 rounded-full border border-border/40 bg-background/40 text-muted-foreground hover:bg-accent/60 disabled:opacity-40"
+								onClick={() => setActiveSlide((current) => Math.min(slides.length - 1, current + 1))}
+								disabled={!canGoNext}
+								aria-label="Show next top assets">
+								<ChevronRight className="size-4" />
+							</Button>
+						</div>
+					) : null}
+				</div>
+			</CardHeader>
+			<CardContent className="overflow-hidden pb-4">
+				<div className="overflow-hidden">
+					<div
+						className="flex w-full transition-transform duration-300 ease-out"
+						style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
+					{slides.map((slideAssets, slideIndex) => (
+						<div
+							key={`top-assets-slide-${slideIndex}`}
+							className="min-w-full max-w-full shrink-0 grow-0 basis-full overflow-hidden">
+							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+								{slideAssets.map((card, cardIndex) => (
+									<FeaturedAssetCard
+										key={card.id}
+										card={card}
+										rank={slideIndex * TOP_ASSETS_PER_SLIDE + cardIndex + 1}
+										isSaved={savedAssetIds.has(card.id)}
+										isSaving={isSaving && savingAssetId === card.id}
+										onSave={() => void onSaveAsset(card)}
+									/>
+								))}
+							</div>
+						</div>
+					))}
+					</div>
+				</div>
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -434,7 +575,19 @@ function HeroChart({ featured, chart }: { featured?: FeaturedCard; chart: Market
 
 // ─── Featured asset card ───────────────────────────────────────────────────
 
-function FeaturedAssetCard({ card }: { card: FeaturedCard }) {
+function FeaturedAssetCard({
+	card,
+	rank,
+	isSaved,
+	isSaving,
+	onSave,
+}: {
+	card: FeaturedCard;
+	rank: number;
+	isSaved: boolean;
+	isSaving: boolean;
+	onSave: () => void;
+}) {
 	const isPositive = card.price_change_percentage_24h >= 0;
 	return (
 		<div className="rounded-lg border border-border/30 bg-card/60 p-3 transition-colors hover:bg-card/80 backdrop-blur-sm">
@@ -442,20 +595,42 @@ function FeaturedAssetCard({ card }: { card: FeaturedCard }) {
 				<div className="flex items-center gap-2">
 					<LogoMark symbol={card.symbol} logoUrl={card.image_url} small />
 					<div>
-						<p className="text-sm font-bold">{card.symbol}</p>
+						<div className="flex items-center gap-2">
+							<p className="text-sm font-bold">{card.symbol}</p>
+							<Badge
+								variant="outline"
+								className="h-5 rounded-full border-border/40 bg-background/40 px-1.5 text-[10px] font-medium text-muted-foreground">
+								#{rank}
+							</Badge>
+						</div>
 						<p className="line-clamp-1 text-xs text-muted-foreground/70">{card.name}</p>
 					</div>
 				</div>
-				<Badge
-					variant="outline"
-					className={cn(
-						"text-xs",
-						isPositive
-							? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-300/20 dark:border-emerald-800/30"
-							: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-300/20 dark:border-amber-800/30",
-					)}>
-					{formatSignedPercent(card.price_change_percentage_24h)}
-				</Badge>
+				<div className="flex items-center gap-2">
+					<Badge
+						variant="outline"
+						className={cn(
+							"text-xs",
+							isPositive
+								? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-300/20 dark:border-emerald-800/30"
+								: "bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-300/20 dark:border-amber-800/30",
+						)}>
+						{formatSignedPercent(card.price_change_percentage_24h)}
+					</Badge>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-8 rounded-full text-amber-500 hover:bg-amber-500/10"
+						onClick={onSave}
+						disabled={isSaving}
+						aria-label={isSaved ? `Open ${card.name} in watchlist` : `Save ${card.name} to watchlist`}>
+						{isSaving ? (
+							<Spinner className="size-4" />
+						) : (
+							<Star className="size-4" fill={isSaved ? "currentColor" : "none"} strokeWidth={1.9} />
+						)}
+					</Button>
+				</div>
 			</div>
 
 			<div className="mt-3">
@@ -488,13 +663,11 @@ function FeaturedAssetCard({ card }: { card: FeaturedCard }) {
 function ActivityCard({
 	generatedAt,
 	source,
-	rankingBasis,
 	gainers,
 	losers,
 }: {
 	generatedAt: string;
 	source: string;
-	rankingBasis: string;
 	gainers: MarketMover[];
 	losers: MarketMover[];
 }) {
@@ -514,7 +687,6 @@ function ActivityCard({
 				<div className="grid gap-3">
 					<InfoTile label="Source" value={source} />
 					<InfoTile label="Updated" value={new Date(generatedAt).toLocaleString("en-GB")} />
-					<InfoTile label="Universe" value={rankingBasis} />
 				</div>
 
 				<Separator className="bg-border/20" />
@@ -526,8 +698,8 @@ function ActivityCard({
 							<div className="flex items-center gap-2">
 								<TrendingUp className="size-4 text-emerald-700 dark:text-emerald-400" />
 								<div>
-									<p className="text-sm font-medium">{best.symbol}</p>
-									<p className="text-xs text-muted-foreground">{best.name}</p>
+									<p className="text-base font-semibold leading-none">{best.symbol}</p>
+									<p className="mt-1 text-sm text-muted-foreground">{best.name}</p>
 								</div>
 							</div>
 							<Badge
@@ -542,8 +714,8 @@ function ActivityCard({
 							<div className="flex items-center gap-2">
 								<TrendingDown className="size-4 text-amber-700 dark:text-amber-300" />
 								<div>
-									<p className="text-sm font-medium">{worst.symbol}</p>
-									<p className="text-xs text-muted-foreground/70">{worst.name}</p>
+									<p className="text-base font-semibold leading-none">{worst.symbol}</p>
+									<p className="mt-1 text-sm text-muted-foreground/70">{worst.name}</p>
 								</div>
 							</div>
 							<Badge

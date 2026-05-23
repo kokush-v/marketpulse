@@ -30,11 +30,15 @@ class StubAsyncClient:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         return None
 
-    async def get(self, path: str) -> StubResponse:
-        assert path == "/api/v1/market-overview"
+    async def get(self, path: str, params: dict[str, str] | None = None) -> StubResponse:
         if self._error:
             raise self._error
         assert self._response is not None
+        if path == "/api/v1/assets/search":
+            assert params is not None
+            assert "q" in params
+        else:
+            assert path == "/api/v1/market-overview"
         return self._response
 
 
@@ -45,7 +49,7 @@ async def test_market_data_service_returns_validated_payload(
     payload = {
         "generated_at": "2026-05-21T12:00:00Z",
         "source": "market-data-api",
-        "ranking_basis": "Top 10 crypto assets by market capitalization",
+        "ranking_basis": "Top 25 crypto assets by market capitalization",
         "hero_asset_id": "bitcoin",
         "featured_assets": [],
         "hero_chart": [],
@@ -63,7 +67,38 @@ async def test_market_data_service_returns_validated_payload(
     result = await service.get_market_overview()
 
     assert result.source == "market-data-api"
-    assert result.ranking_basis == "Top 10 crypto assets by market capitalization"
+    assert result.ranking_basis == "Top 25 crypto assets by market capitalization"
+
+
+@pytest.mark.asyncio
+async def test_market_data_service_returns_asset_search_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "items": [
+            {
+                "asset_id": "bitcoin",
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "market_cap_rank": 1,
+                "current_price": 108250.12,
+                "price_change_percentage_24h": 1.42,
+                "image_url": "https://example.com/btc.png",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
+    )
+
+    service = MarketDataService(base_url="http://localhost:3001")
+    result = await service.search_assets("btc")
+
+    assert result.items[0].asset_id == "bitcoin"
+    assert result.items[0].symbol == "BTC"
 
 
 @pytest.mark.asyncio

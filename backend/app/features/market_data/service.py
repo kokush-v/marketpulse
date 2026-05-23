@@ -6,7 +6,7 @@ import httpx
 from fastapi import status
 
 from app.core.config import settings
-from app.features.market_data.schemas import MarketOverviewResponse
+from app.features.market_data.schemas import AssetSearchResponse, MarketOverviewResponse
 
 
 @dataclass
@@ -41,6 +41,32 @@ class MarketDataService:
             )
 
         return MarketOverviewResponse.model_validate(response.json())
+
+    async def search_assets(self, query: str) -> AssetSearchResponse:
+        try:
+            async with httpx.AsyncClient(base_url=self._base_url, timeout=15.0) as client:
+                response = await client.get(
+                    "/api/v1/assets/search",
+                    params={"q": query},
+                )
+        except httpx.TimeoutException as exc:
+            raise self._upstream_exception(
+                status.HTTP_504_GATEWAY_TIMEOUT,
+                "Asset search timed out upstream.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise self._upstream_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                "Asset search is unavailable right now.",
+            ) from exc
+
+        if response.status_code >= 400:
+            raise self._upstream_exception(
+                self._map_status_code(response.status_code),
+                self._extract_message(response),
+            )
+
+        return AssetSearchResponse.model_validate(response.json())
 
     def _map_status_code(self, upstream_status_code: int) -> int:
         if upstream_status_code == status.HTTP_429_TOO_MANY_REQUESTS:
