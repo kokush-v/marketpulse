@@ -303,11 +303,11 @@ function TopAssetsSlider({
 							key={`top-assets-slide-${slideIndex}`}
 							className="min-w-full max-w-full shrink-0 grow-0 basis-full overflow-hidden">
 							<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-								{slideAssets.map((card) => (
+								{slideAssets.map((card, cardIndex) => (
 									<FeaturedAssetCard
 										key={card.id}
 										card={card}
-										rank={slideIndex * TOP_ASSETS_PER_SLIDE + slideAssets.indexOf(card) + 1}
+										rank={slideIndex * TOP_ASSETS_PER_SLIDE + cardIndex + 1}
 										isSaved={savedAssetIds.has(card.id)}
 										isSaving={isSaving && savingAssetId === card.id}
 										onSave={() => void onSaveAsset(card)}

@@ -14,6 +14,7 @@ from app.features.market_data.schemas import (
 )
 from app.features.watchlists.models import WatchlistAsset
 from app.features.watchlists.schemas import AddWatchlistAssetRequest
+from app.features.watchlists.repository import WatchlistAssetAlreadySavedError
 from app.features.watchlists.service import WatchlistService, WatchlistServiceError
 
 
@@ -51,6 +52,11 @@ class FakeWatchlistRepository:
             if not (asset.user_id == user_id and asset.asset_id == asset_id)
         ]
         return len(self.assets) != before
+
+
+class DuplicateRaceWatchlistRepository(FakeWatchlistRepository):
+    async def create_asset_for_user(self, user_id, asset_id, symbol, name, image_url):
+        raise WatchlistAssetAlreadySavedError
 
 
 class FakeMarketDataService:
@@ -145,6 +151,29 @@ async def test_add_asset_prevents_duplicates() -> None:
     )
     service = WatchlistService(
         repository=FakeWatchlistRepository([existing_asset]),
+        market_data_service=FakeMarketDataService([_make_featured_asset()]),
+    )
+
+    with pytest.raises(WatchlistServiceError) as exc_info:
+        await service.add_asset(
+            user,
+            AddWatchlistAssetRequest(
+                asset_id="bitcoin",
+                symbol="btc",
+                name="Bitcoin",
+                image_url="https://example.com/asset.png",
+            ),
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.message == "Asset is already saved"
+
+
+@pytest.mark.asyncio
+async def test_add_asset_maps_duplicate_race_to_conflict() -> None:
+    user = _make_user()
+    service = WatchlistService(
+        repository=DuplicateRaceWatchlistRepository(),
         market_data_service=FakeMarketDataService([_make_featured_asset()]),
     )
 

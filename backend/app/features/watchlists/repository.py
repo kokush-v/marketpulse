@@ -1,9 +1,14 @@
 import uuid
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.watchlists.models import WatchlistAsset
+
+
+class WatchlistAssetAlreadySavedError(Exception):
+    """Raised when a concurrent insert hits the watchlist uniqueness constraint."""
 
 
 class WatchlistRepository:
@@ -43,7 +48,11 @@ class WatchlistRepository:
             image_url=image_url,
         )
         self.session.add(asset)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise WatchlistAssetAlreadySavedError from exc
         await self.session.refresh(asset)
         return asset
 

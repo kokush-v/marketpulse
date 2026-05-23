@@ -43,23 +43,23 @@ import {
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 const navGroups = [
-	{
-		label: "General",
-		items: [
-			{ title: "Overview", icon: LayoutGrid, href: "/dashboard" },
-			{ title: "Market", icon: LineChart, href: "/dashboard", active: false, soon: true },
-			{ title: "Signals", icon: Activity, href: "/dashboard", active: false, soon: true },
-		],
-	},
-	{
-		label: "Workspace",
-		items: [
-			{ title: "Watchlist", icon: Star, href: "/watchlist" },
-			{ title: "Portfolio", icon: WalletCards, href: "/dashboard", active: false, soon: true },
-			{ title: "Settings", icon: Settings, href: "/dashboard", active: false, soon: true },
-		],
-	},
-];
+		{
+			label: "General",
+			items: [
+				{ title: "Overview", icon: LayoutGrid, href: "/dashboard" },
+				{ title: "Market", icon: LineChart, href: "/dashboard/market", active: false, soon: true },
+				{ title: "Signals", icon: Activity, href: "/dashboard/signals", active: false, soon: true },
+			],
+		},
+		{
+			label: "Workspace",
+			items: [
+				{ title: "Watchlist", icon: Star, href: "/watchlist" },
+				{ title: "Portfolio", icon: WalletCards, href: "/dashboard/portfolio", active: false, soon: true },
+				{ title: "Settings", icon: Settings, href: "/dashboard/settings", active: false, soon: true },
+			],
+		},
+	];
 
 export function AppSidebar() {
 	const pathname = usePathname();

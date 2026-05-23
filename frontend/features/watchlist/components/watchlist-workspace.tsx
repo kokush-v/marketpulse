@@ -539,7 +539,7 @@ export function WatchlistWorkspace() {
                             </div>
                             {selectedAssetContextQuery.data.summary.homepage && (
                               <Button asChild variant="outline" className="w-full justify-between">
-                                <Link href={selectedAssetContextQuery.data.summary.homepage} target="_blank">
+                                <Link href={selectedAssetContextQuery.data.summary.homepage} target="_blank" rel="noopener noreferrer">
                                   Visit official homepage
                                   <ExternalLink className="size-4" />
                                 </Link>
@@ -575,7 +575,7 @@ export function WatchlistWorkspace() {
                                   <h3 className="mt-3 font-medium">{item.title}</h3>
                                   <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.summary}</p>
                                   <Button asChild variant="link" className="mt-3 px-0">
-                                    <Link href={item.url} target="_blank">
+                                    <Link href={item.url} target="_blank" rel="noopener noreferrer">
                                       Open link
                                       <ExternalLink className="ml-1 size-4" />
                                     </Link>

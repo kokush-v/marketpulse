@@ -1,7 +1,7 @@
 # watchlists Specification
 
 ## Purpose
-TBD - created by archiving change add-starred-watchlist. Update Purpose after archive.
+Define the protected personal watchlist experience for authenticated users, including saving starred crypto assets, preventing duplicates, restoring the selected asset, and showing selected-asset summary, chart, and related news context.
 ## Requirements
 ### Requirement: Provide a Protected Single Watchlist Workspace
 The system SHALL provide authenticated users with a protected `Watchlist` workspace that represents one personal list of starred crypto assets.
@@ -95,4 +95,3 @@ The system SHALL expose per-asset overflow actions for delete and future alert e
 - **Given** an authenticated user opens the overflow actions for a saved asset
 - **When** the user chooses `Add alert`
 - **Then** the system does not create or persist an alert as part of this change
-

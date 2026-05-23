@@ -9,7 +9,10 @@ from app.db.session import get_async_session
 from app.features.auth.models import User
 from app.features.market_data.schemas import FeaturedAssetResponse
 from app.features.market_data.service import MarketDataService
-from app.features.watchlists.repository import WatchlistRepository
+from app.features.watchlists.repository import (
+    WatchlistAssetAlreadySavedError,
+    WatchlistRepository,
+)
 from app.features.watchlists.schemas import (
     AddWatchlistAssetRequest,
     WatchlistAssetContextResponse,
@@ -88,13 +91,19 @@ class WatchlistService:
                 message="Asset is already saved",
             )
 
-        asset = await self.repository.create_asset_for_user(
-            user_id=user.id,
-            asset_id=asset_id,
-            symbol=symbol,
-            name=name,
-            image_url=image_url,
-        )
+        try:
+            asset = await self.repository.create_asset_for_user(
+                user_id=user.id,
+                asset_id=asset_id,
+                symbol=symbol,
+                name=name,
+                image_url=image_url,
+            )
+        except WatchlistAssetAlreadySavedError as exc:
+            raise WatchlistServiceError(
+                status_code=status.HTTP_409_CONFLICT,
+                message="Asset is already saved",
+            ) from exc
         return WatchlistAssetResponse.model_validate(asset)
 
     async def remove_asset(self, user: User, asset_id: str) -> WatchlistOperationResponse:
