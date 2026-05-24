@@ -11,6 +11,8 @@ node_modules/
 out/
 tsconfig.tsbuildinfo
 npm-debug.log*
+/package-lock.json
+.husky/_/
 frontend/src/api/generated/
 !frontend/src/api/generated/
 frontend/src/api/generated/*

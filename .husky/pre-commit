@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+echo "Running backend lint via pre-commit..."
+cd backend
+uv run pre-commit run --config ../.pre-commit-config.yaml --all-files backend-lint
+
+echo "Running frontend lint via husky..."
+cd ../frontend
+npm run lint
