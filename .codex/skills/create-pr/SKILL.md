@@ -37,6 +37,8 @@ Read:
 - Do not claim tests passed unless they were actually run.
 - If tests were not run, state that clearly.
 - Link the Linear issue when available.
+- Prefer the Linear issue key in the PR title when one exists.
+- Prefer the Linear issue key in the branch name when one exists.
 - Link or mention the OpenSpec change ID.
 - Summarize user-visible behavior and important technical changes.
 - Do not list every changed file unless needed for review.
@@ -46,11 +48,23 @@ Read:
 
 # PR Title Format
 
-Use one of:
+Prefer this format when a Linear issue exists:
+
+```text
+<linear-id>: <short summary>
+```
+
+Examples:
+
+```text
+MAR-9: add public crypto market dashboard
+MP-123: add backend auth foundation
+```
+
+If no Linear issue exists, use one of:
 
 ```text
 <change-id>: <short summary>
-<linear-id>: <short summary>
 <linear-id> <change-id>: <short summary>
 ```
 
@@ -58,9 +72,25 @@ Examples:
 
 ```text
 add-auth-foundation: add backend auth foundation
-MP-123: add backend auth foundation
 MP-123 add-auth-foundation: add backend auth foundation
 ```
+
+# Branch Name Format
+
+Prefer this format when a Linear issue exists:
+
+```text
+<linear-id>-<short-kebab-summary>
+```
+
+Examples:
+
+```text
+MAR-10-add-starred-watchlist
+MAR-9-add-public-market-dashboard
+```
+
+If no Linear issue exists, use a short kebab-case branch name derived from the OpenSpec change ID.
 
 # PR Description Format
 
