@@ -28,12 +28,20 @@ module MarketDataApi
 
     config.x.coingecko_api_key = ENV["COINGECKO_API_KEY"]
     config.x.coingecko_api_base_url = ENV.fetch("COINGECKO_API_BASE_URL", "https://api.coingecko.com/api/v3")
+    config.x.news_api_key = ENV["NEWS_API_KEY"]
+    config.x.news_api_base_url = ENV.fetch("NEWS_API_BASE_URL", "https://newsapi.org/v2")
     config.x.market_overview_ranked_asset_ids = MARKET_OVERVIEW_TOP_25_CRYPTO_ASSET_IDS
     config.x.market_overview_ranking_basis = "Top 25 crypto assets by market capitalization"
     config.x.market_data_client_factory = lambda do
       CoinGecko::Client.new(
         base_url: config.x.coingecko_api_base_url,
         api_key: config.x.coingecko_api_key
+      )
+    end
+    config.x.news_api_client_factory = lambda do
+      NewsApi::Client.new(
+        base_url: config.x.news_api_base_url,
+        api_key: config.x.news_api_key
       )
     end
   end

@@ -46,6 +46,7 @@ The system SHALL maintain one selected saved asset and update all watchlist info
 - **Given** an authenticated user has multiple saved assets in the watchlist
 - **When** the user selects a different asset from the saved-assets list
 - **Then** the system updates the summary, chart, and related-news cards to match the selected asset
+- **And** the related-news card uses the dedicated protected coin-news lookup flow for the active selection
 
 #### Scenario: User opens a non-empty watchlist without a valid restored selection
 - **Given** an authenticated user has one or more saved assets in the watchlist
@@ -76,6 +77,8 @@ The system SHALL show selected-asset context cards for summary, chart, and relat
 - **Given** an authenticated user has a selected saved asset in the watchlist
 - **When** the watchlist workspace renders
 - **Then** the system shows summary, chart, and related-news cards for that asset
+- **And** the related-news card shows explicit loading, empty, and error states while fetching dedicated coin-news results
+- **And** the related-news card shows an article image when one is available and falls back gracefully when it is not
 
 #### Scenario: Watchlist is empty
 - **Given** an authenticated user has no saved assets in the watchlist

@@ -6,7 +6,11 @@ import httpx
 from fastapi import status
 
 from app.core.config import settings
-from app.features.market_data.schemas import AssetSearchResponse, MarketOverviewResponse
+from app.features.market_data.schemas import (
+    AssetSearchResponse,
+    CoinNewsSearchResponse,
+    MarketOverviewResponse,
+)
 
 
 @dataclass
@@ -68,6 +72,35 @@ class MarketDataService:
 
         return AssetSearchResponse.model_validate(response.json())
 
+    async def get_coin_news(self, query: str) -> CoinNewsSearchResponse:
+        try:
+            async with httpx.AsyncClient(base_url=self._base_url, timeout=15.0) as client:
+                response = await client.get(
+                    "/api/v1/news",
+                    params={"query": query},
+                )
+        except httpx.TimeoutException as exc:
+            raise self._upstream_exception(
+                status.HTTP_504_GATEWAY_TIMEOUT,
+                "Coin news timed out upstream.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise self._upstream_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                "Coin news is unavailable right now.",
+            ) from exc
+
+        if response.status_code >= 400:
+            raise self._upstream_exception(
+                self._map_status_code(response.status_code),
+                self._extract_message(
+                    response,
+                    default_message="Coin news is unavailable right now.",
+                ),
+            )
+
+        return CoinNewsSearchResponse.model_validate(response.json())
+
     def _map_status_code(self, upstream_status_code: int) -> int:
         if upstream_status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             return status.HTTP_429_TOO_MANY_REQUESTS
@@ -75,11 +108,15 @@ class MarketDataService:
             return status.HTTP_503_SERVICE_UNAVAILABLE
         return status.HTTP_502_BAD_GATEWAY
 
-    def _extract_message(self, response: httpx.Response) -> str:
+    def _extract_message(
+        self,
+        response: httpx.Response,
+        default_message: str = "Market overview is unavailable right now.",
+    ) -> str:
         try:
             payload = response.json()
         except ValueError:
-            return "Market overview is unavailable right now."
+            return default_message
 
         if isinstance(payload, dict):
             if isinstance(payload.get("message"), str) and payload["message"].strip():
@@ -94,7 +131,7 @@ class MarketDataService:
                 if isinstance(title, str) and title.strip():
                     return title
 
-        return "Market overview is unavailable right now."
+        return default_message
 
     def _upstream_exception(self, status_code: int, message: str) -> UpstreamMarketDataError:
         return UpstreamMarketDataError(status_code=status_code, message=message)

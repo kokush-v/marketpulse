@@ -12,11 +12,15 @@
 
 - `GET /up`
 - `GET /api/v1/market-overview`
+- `GET /api/v1/assets/search`
+- `GET /api/v1/news`
 
 ## Environment variables
 
 - `COINGECKO_API_KEY` - optional for CoinGecko demo access modes
 - `COINGECKO_API_BASE_URL` - optional, defaults to `https://api.coingecko.com/api/v3`
+- `NEWS_API_KEY` - required for NewsAPI-backed coin news search
+- `NEWS_API_BASE_URL` - optional, defaults to `https://newsapi.org/v2`
 
 ## Ranking universe
 
@@ -31,6 +35,7 @@ This keeps the dashboard live on crypto prices and charts without making the pro
 
 - successful `GET /api/v1/market-overview` payloads are cached in the microservice for 1 hour
 - the cache is kept in-process through Rails `memory_store`
+- `GET /api/v1/news` is fetched on demand and is not cached in v1
 
 ## Development
 

@@ -60,6 +60,19 @@ class AssetSearchResponse(BaseModel):
     items: list[AssetSearchResultResponse]
 
 
+class CoinNewsArticleResponse(BaseModel):
+    title: str
+    summary: str
+    url: str
+    image_url: str | None = None
+    published_at: str | None = None
+    source: str
+
+
+class CoinNewsSearchResponse(BaseModel):
+    articles: list[CoinNewsArticleResponse]
+
+
 class MarketOverviewResponse(BaseModel):
     generated_at: str
     source: str
