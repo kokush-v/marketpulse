@@ -5,6 +5,7 @@ Rails.application.routes.draw do
     namespace :v1 do
       get "market-overview", to: "market_overview#show"
       get "assets/search", to: "assets#search"
+      get "news", to: "news#index"
     end
   end
 end

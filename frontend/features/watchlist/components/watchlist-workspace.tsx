@@ -21,6 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { AppSidebar } from "@/features/market-dashboard/components/app-sidebar";
 import { getStoredSelectedAssetId, setStoredSelectedAssetId } from "@/features/watchlist/lib/selection-storage";
+import { useGetCoinNewsNewsGet } from "@/src/api/generated/news/news";
 import {
   getGetStarredWatchlistAssetContextWatchlistsStarredAssetsAssetIdContextGetQueryKey,
   getGetStarredWatchlistWatchlistsStarredGetQueryKey,
@@ -83,12 +84,23 @@ export function WatchlistWorkspace() {
       },
     }
   );
+  const assets = watchlistQuery.data?.assets ?? [];
+  const selectedAsset = assets.find((asset) => asset.asset_id === selectedAssetId) ?? null;
+  const selectedAssetNewsQuery = useGetCoinNewsNewsGet(
+    {
+      query: selectedAsset?.name ?? selectedAsset?.symbol ?? "",
+    },
+    {
+      query: {
+        enabled: Boolean(selectedAsset?.name || selectedAsset?.symbol),
+        staleTime: 30_000,
+        retry: 1,
+      },
+    }
+  );
 
   const addAssetMutation = useAddStarredWatchlistAssetWatchlistsStarredAssetsPost();
   const removeAssetMutation = useRemoveStarredWatchlistAssetWatchlistsStarredAssetsAssetIdDelete();
-
-  const assets = watchlistQuery.data?.assets ?? [];
-  const selectedAsset = assets.find((asset) => asset.asset_id === selectedAssetId) ?? null;
 
   React.useEffect(() => {
     if (!watchlistQuery.data) {
@@ -196,10 +208,10 @@ export function WatchlistWorkspace() {
           </div>
         </header>
 
-        <div className="@container/main flex flex-1 flex-col bg-gradient-to-b from-background via-background to-background/80">
-          <div className="flex flex-1 flex-col gap-4 px-4 py-4 lg:px-6 md:gap-6 md:py-6">
-            <section className="grid flex-1 items-stretch gap-4 xl:min-h-[calc(100vh-7.5rem)] xl:grid-cols-[360px_minmax(0,1fr)]">
-              <Card className="flex h-full min-h-[520px] flex-col border-border/30 bg-card/60 backdrop-blur-sm xl:min-h-[calc(100vh-7.5rem)]">
+        <div className="@container/main flex h-[calc(100svh-4rem)] min-h-0 flex-col overflow-hidden bg-gradient-to-b from-background via-background to-background/80">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 py-4 lg:px-6 md:gap-6 md:py-6">
+            <section className="grid min-h-0 flex-1 items-stretch gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm">
                 <CardHeader className="gap-5 pb-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -394,7 +406,7 @@ export function WatchlistWorkspace() {
                 </CardContent>
               </Card>
 
-              <div className="flex min-h-[520px] flex-col gap-4 xl:min-h-[calc(100vh-7.5rem)]">
+              <div className="flex min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto pr-1">
                 {placeholderMessage && (
                   <Card className="border-amber-500/30 bg-amber-500/5">
                     <CardContent className="px-5 py-4 text-sm text-amber-800">{placeholderMessage}</CardContent>
@@ -423,7 +435,7 @@ export function WatchlistWorkspace() {
                     }
                   />
                 ) : selectedAssetContextQuery.data ? (
-                  <div className="flex h-full flex-col gap-4">
+                  <div className="flex min-h-0 flex-1 flex-col gap-4">
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <SummaryMetricCard
                         label="Price"
@@ -448,16 +460,16 @@ export function WatchlistWorkspace() {
                       />
                     </div>
 
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-                      <div className="grid gap-4">
-                        <Card className="border-border/30 bg-card/60 backdrop-blur-sm">
+                    <div className="grid min-h-0 flex-1 items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(400px,0.92fr)] 2xl:grid-cols-[minmax(0,1.05fr)_minmax(440px,0.88fr)]">
+                      <div className="grid content-start gap-4 self-start">
+                        <Card className="self-start border-border/30 bg-card/60 backdrop-blur-sm">
                           <CardHeader>
                             <CardTitle>7-day chart</CardTitle>
                             <CardDescription className="pb-2">
                               A quick read on recent price movement for {selectedAssetContextQuery.data.summary.name}.
                             </CardDescription>
                           </CardHeader>
-                          <CardContent className="h-[320px]">
+                          <CardContent className="h-[300px] 2xl:h-[320px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <AreaChart data={selectedAssetContextQuery.data.chart}>
                                 <defs>
@@ -503,12 +515,12 @@ export function WatchlistWorkspace() {
                         </Card>
 
                         <Card className="border-border/30 bg-card/60 backdrop-blur-sm">
-                        <CardHeader>
-                          <CardTitle>Market snapshot</CardTitle>
-                          <CardDescription className="pb-2">
-                            The essentials behind the active selection.
-                          </CardDescription>
-                        </CardHeader>
+                          <CardHeader>
+                            <CardTitle>Market snapshot</CardTitle>
+                            <CardDescription className="pb-2">
+                              The essentials behind the active selection.
+                            </CardDescription>
+                          </CardHeader>
                           <CardContent className="space-y-4">
                             <div className="flex items-center gap-3">
                               <AssetAvatar
@@ -549,32 +561,63 @@ export function WatchlistWorkspace() {
                         </Card>
                       </div>
 
-                      <Card className="flex h-full min-h-[320px] flex-col border-border/30 bg-card/60 backdrop-blur-sm">
+                      <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/30 bg-card/60 backdrop-blur-sm">
                         <CardHeader>
                           <CardTitle className="flex items-center gap-2">
                             <Newspaper className="size-5 text-muted-foreground" />
                             Related updates
                           </CardTitle>
                           <CardDescription className="pb-2">
-                            Recent reading and reference links connected to {selectedAssetContextQuery.data.summary.name}.
+                            Recent reading and reference links connected to{" "}
+                            {selectedAssetContextQuery.data.summary.name}.
                           </CardDescription>
                         </CardHeader>
-                        <CardContent className="min-h-0 flex-1 overflow-y-auto">
-                          {selectedAssetContextQuery.data.related_news.length ? (
+                        <CardContent className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+                          {selectedAssetNewsQuery.isLoading ? (
                             <div className="grid gap-3">
-                              {selectedAssetContextQuery.data.related_news.map((item) => (
-                                <article key={`${item.url}-${item.title}`} className="rounded-xl border border-border/40 bg-background/70 p-4">
+                              <NewsCardSkeleton />
+                              <NewsCardSkeleton />
+                            </div>
+                          ) : selectedAssetNewsQuery.isError ? (
+                            <div className="rounded-xl border border-dashed border-destructive/40 px-4 py-8 text-sm text-muted-foreground">
+                              {selectedAssetNewsQuery.error instanceof Error
+                                ? selectedAssetNewsQuery.error.message
+                                : "We couldn’t load related updates for this asset right now."}
+                            </div>
+                          ) : selectedAssetNewsQuery.data?.articles.length ? (
+                            <div className="grid gap-3">
+                              {selectedAssetNewsQuery.data.articles.map((item) => (
+                                <article
+                                  key={`${item.url}-${item.title}`}
+                                  className="min-w-0 rounded-xl border border-border/40 bg-background/70 p-3.5"
+                                >
+                                  {item.image_url ? (
+                                    <div className="mb-3 overflow-hidden rounded-lg border border-border/30 bg-muted/20">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={item.image_url}
+                                        alt={item.title}
+                                        className="h-40 w-full object-cover"
+                                      />
+                                    </div>
+                                  ) : null}
                                   <div className="flex items-center justify-between gap-3">
-                                    <Badge variant="outline">{item.source}</Badge>
+                                    <Badge variant="outline" className="max-w-[180px] truncate">
+                                      {item.source}
+                                    </Badge>
                                     {item.published_at ? (
-                                      <span className="text-xs text-muted-foreground">
+                                      <span className="shrink-0 text-xs text-muted-foreground">
                                         {new Date(item.published_at).toLocaleDateString()}
                                       </span>
                                     ) : null}
                                   </div>
-                                  <h3 className="mt-3 font-medium">{item.title}</h3>
-                                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.summary}</p>
-                                  <Button asChild variant="link" className="mt-3 px-0">
+                                  <h3 className="mt-2.5 break-words font-medium leading-7">
+                                    {item.title}
+                                  </h3>
+                                  <p className="mt-1.5 break-words text-sm leading-6 text-muted-foreground">
+                                    {item.summary}
+                                  </p>
+                                  <Button asChild variant="link" className="mt-2 px-0">
                                     <Link href={item.url} target="_blank" rel="noopener noreferrer">
                                       Open link
                                       <ExternalLink className="ml-1 size-4" />

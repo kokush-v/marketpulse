@@ -37,6 +37,9 @@ class StubAsyncClient:
         if path == "/api/v1/assets/search":
             assert params is not None
             assert "q" in params
+        elif path == "/api/v1/news":
+            assert params is not None
+            assert "query" in params
         else:
             assert path == "/api/v1/market-overview"
         return self._response
@@ -144,3 +147,58 @@ async def test_market_data_service_maps_timeout(
 
     assert exc_info.value.status_code == 504
     assert exc_info.value.message == "Market overview timed out upstream."
+
+
+@pytest.mark.asyncio
+async def test_market_data_service_returns_coin_news_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "articles": [
+            {
+                "title": "Bitcoin reclaims momentum",
+                "summary": "Spot demand improved during the session.",
+                "url": "https://example.com/news/bitcoin",
+                "image_url": "https://example.com/news/bitcoin.png",
+                "published_at": "2026-05-25T09:30:00Z",
+                "source": "NewsAPI",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
+    )
+
+    service = MarketDataService(base_url="http://localhost:3001")
+    result = await service.get_coin_news("bitcoin")
+
+    assert result.articles[0].title == "Bitcoin reclaims momentum"
+    assert result.articles[0].source == "NewsAPI"
+    assert result.articles[0].image_url == "https://example.com/news/bitcoin.png"
+
+
+@pytest.mark.asyncio
+async def test_market_data_service_maps_coin_news_rate_limited_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(
+            response=StubResponse(
+                status_code=429,
+                payload={"error": {"detail": "Coin news provider is rate limited."}},
+            )
+        ),
+    )
+
+    service = MarketDataService(base_url="http://localhost:3001")
+
+    with pytest.raises(UpstreamMarketDataError) as exc_info:
+        await service.get_coin_news("bitcoin")
+
+    assert exc_info.value.status_code == 429
+    assert exc_info.value.message == "Coin news provider is rate limited."
