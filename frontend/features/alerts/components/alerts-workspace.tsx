@@ -47,6 +47,7 @@ import { cn } from "@/shared/lib/utils";
 export function AlertsWorkspace() {
   const queryClient = useQueryClient();
   const [collapsedGroups, setCollapsedGroups] = React.useState<Record<string, boolean>>({});
+  const [actionError, setActionError] = React.useState<string | null>(null);
   const alertsQuery = useListAlertsAlertsGet(undefined, {
     query: {
       staleTime: 30_000,
@@ -104,8 +105,9 @@ export function AlertsWorkspace() {
         await resumeAlertMutation.mutateAsync({ alertId: alert.id });
       }
       await queryClient.invalidateQueries({ queryKey: getListAlertsAlertsGetQueryKey() });
-    } catch {
-      // Shared request handler already surfaces meaningful error messages.
+      setActionError(null);
+    } catch (error) {
+      setActionError(getActionErrorMessage(error, `Unable to ${alert.status === "active" ? "pause" : "resume"} this alert.`));
     }
   };
 
@@ -113,8 +115,9 @@ export function AlertsWorkspace() {
     try {
       await deleteAlertMutation.mutateAsync({ alertId: alert.id });
       await queryClient.invalidateQueries({ queryKey: getListAlertsAlertsGetQueryKey() });
-    } catch {
-      // Shared request handler already surfaces meaningful error messages.
+      setActionError(null);
+    } catch (error) {
+      setActionError(getActionErrorMessage(error, "Unable to delete this alert."));
     }
   };
 
@@ -149,6 +152,7 @@ export function AlertsWorkspace() {
                 className="h-9 w-9 p-0"
                 onClick={() => void alertsQuery.refetch()}
                 disabled={alertsQuery.isFetching}
+                aria-label="Refresh alerts list"
               >
                 <RefreshCw className={cn("size-4", alertsQuery.isFetching && "animate-spin")} />
               </Button>
@@ -183,6 +187,14 @@ export function AlertsWorkspace() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex min-h-0 flex-1 flex-col space-y-4">
+                  {actionError ? (
+                    <div
+                      role="alert"
+                      className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                    >
+                      {actionError}
+                    </div>
+                  ) : null}
                   {alertsQuery.isLoading ? (
                     <div className="flex flex-wrap gap-4">
                       {Array.from({ length: 4 }).map((_, index) => (
@@ -408,6 +420,14 @@ function getAlertRuleTone(scenario: AlertResponse["scenario"]) {
     return "border-rose-500/25 bg-rose-500/10 text-rose-300";
   }
   return "border-sky-500/25 bg-sky-500/10 text-sky-300";
+}
+
+function getActionErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 function EmptyPanel({

@@ -111,6 +111,7 @@ class MarketDataService:
     ) -> AssetSearchResultResponse | None:
         candidates = [asset_id.strip(), symbol.strip(), name.strip()]
         seen: set[str] = set()
+        normalized_asset_id = asset_id.lower()
 
         for candidate in candidates:
             normalized_candidate = candidate.lower()
@@ -120,13 +121,7 @@ class MarketDataService:
 
             matches = await self.search_assets(candidate)
             exact = next(
-                (
-                    item
-                    for item in matches.items
-                    if item.asset_id.lower() == asset_id.lower()
-                    or item.symbol.lower() == symbol.lower()
-                    or item.name.lower() == name.lower()
-                ),
+                (item for item in matches.items if item.asset_id.lower() == normalized_asset_id),
                 None,
             )
             if exact is not None:

@@ -105,6 +105,76 @@ async def test_market_data_service_returns_asset_search_results(
 
 
 @pytest.mark.asyncio
+async def test_find_asset_requires_exact_asset_id_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "items": [
+            {
+                "asset_id": "wrapped-bitcoin",
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "market_cap_rank": 15,
+                "current_price": 108250.12,
+                "price_change_percentage_24h": 1.42,
+                "image_url": "https://example.com/wbtc.png",
+            },
+            {
+                "asset_id": "bitcoin",
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "market_cap_rank": 1,
+                "current_price": 108250.12,
+                "price_change_percentage_24h": 1.42,
+                "image_url": "https://example.com/btc.png",
+            },
+        ]
+    }
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
+    )
+
+    service = MarketDataService(base_url="http://localhost:3001")
+    result = await service.find_asset(asset_id="bitcoin", symbol="BTC", name="Bitcoin")
+
+    assert result is not None
+    assert result.asset_id == "bitcoin"
+
+
+@pytest.mark.asyncio
+async def test_find_asset_returns_none_for_symbol_name_collision_without_asset_id_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "items": [
+            {
+                "asset_id": "wrapped-bitcoin",
+                "symbol": "BTC",
+                "name": "Bitcoin",
+                "market_cap_rank": 15,
+                "current_price": 108250.12,
+                "price_change_percentage_24h": 1.42,
+                "image_url": "https://example.com/wbtc.png",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
+    )
+
+    service = MarketDataService(base_url="http://localhost:3001")
+    result = await service.find_asset(asset_id="bitcoin", symbol="BTC", name="Bitcoin")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_market_data_service_maps_rate_limited_upstream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -77,14 +78,23 @@ class FakeMarketDataService:
 
 
 class FakeWatchlistRepository:
-    def __init__(self, saved_asset_ids: set[str] | None = None) -> None:
-        self.saved_asset_ids = saved_asset_ids or set()
+    def __init__(self, saved_assets: dict[str, object] | set[str] | None = None) -> None:
+        if isinstance(saved_assets, set) or saved_assets is None:
+            self.saved_assets = {
+                asset_id: SimpleNamespace(
+                    asset_id=asset_id,
+                    symbol="BTC" if asset_id == "bitcoin" else asset_id.upper(),
+                    name="Bitcoin" if asset_id == "bitcoin" else asset_id.title(),
+                    image_url="https://example.com/asset.png",
+                )
+                for asset_id in (saved_assets or set())
+            }
+        else:
+            self.saved_assets = saved_assets
 
     async def get_asset_for_user(self, user_id, asset_id):
         _ = user_id
-        if asset_id in self.saved_asset_ids:
-            return object()
-        return None
+        return self.saved_assets.get(asset_id)
 
 
 def _make_user() -> User:
@@ -187,6 +197,44 @@ async def test_create_alert_captures_percent_baseline() -> None:
 
 
 @pytest.mark.asyncio
+async def test_create_alert_uses_saved_watchlist_asset_metadata() -> None:
+    user = _make_user()
+    service = AlertService(
+        repository=FakeAlertRepository(),
+        market_data_service=FakeMarketDataService(_make_asset()),
+        watchlist_repository=FakeWatchlistRepository(
+            {
+                "bitcoin": SimpleNamespace(
+                    asset_id="bitcoin",
+                    symbol="BTC",
+                    name="Bitcoin",
+                    image_url="https://example.com/watchlist-bitcoin.png",
+                )
+            }
+        ),
+    )
+
+    created = await service.create_alert(
+        user,
+        CreateAlertRequest(
+            asset_id="bitcoin",
+            symbol="eth",
+            name="Ethereum",
+            image_url="https://example.com/ethereum.png",
+            scenario="price_above",
+            time_behavior="one_time",
+            trigger_mode="currency",
+            threshold_value=15,
+        ),
+    )
+
+    assert created.asset_id == "bitcoin"
+    assert created.symbol == "BTC"
+    assert created.name == "Bitcoin"
+    assert created.image_url == "https://example.com/watchlist-bitcoin.png"
+
+
+@pytest.mark.asyncio
 async def test_create_news_alert_does_not_require_trigger_data() -> None:
     user = _make_user()
     service = AlertService(
@@ -270,7 +318,22 @@ async def test_update_alert_replaces_coin_and_recaptures_percent_baseline() -> N
     service = AlertService(
         repository=repository,
         market_data_service=FakeMarketDataService(_make_asset("ethereum", "ETH", "Ethereum")),
-        watchlist_repository=FakeWatchlistRepository({"bitcoin", "ethereum"}),
+        watchlist_repository=FakeWatchlistRepository(
+            {
+                "bitcoin": SimpleNamespace(
+                    asset_id="bitcoin",
+                    symbol="BTC",
+                    name="Bitcoin",
+                    image_url="https://example.com/asset.png",
+                ),
+                "ethereum": SimpleNamespace(
+                    asset_id="ethereum",
+                    symbol="ETH",
+                    name="Ethereum",
+                    image_url="https://example.com/asset.png",
+                ),
+            }
+        ),
     )
 
     updated = await service.update_alert(

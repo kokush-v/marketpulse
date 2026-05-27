@@ -111,9 +111,6 @@ class AlertService:
         payload: CreateAlertRequest | UpdateAlertRequest,
     ) -> dict[str, object]:
         asset_id = payload.asset_id.strip().lower()
-        symbol = payload.symbol.strip().upper()
-        name = payload.name.strip()
-        image_url = payload.image_url.strip() if payload.image_url else None
 
         saved_asset = await self.watchlist_repository.get_asset_for_user(user.id, asset_id)
         if saved_asset is None:
@@ -122,19 +119,24 @@ class AlertService:
                 message="Selected coin must be saved in your watchlist",
             )
 
+        normalized_asset_id = saved_asset.asset_id.strip().lower()
+        normalized_symbol = saved_asset.symbol.strip().upper()
+        normalized_name = saved_asset.name.strip()
+        normalized_image_url = saved_asset.image_url.strip() if saved_asset.image_url else None
+
         scenario_payload = await self._normalize_scenario_payload(
-            asset_id=asset_id,
-            symbol=symbol,
-            name=name,
+            asset_id=normalized_asset_id,
+            symbol=normalized_symbol,
+            name=normalized_name,
             scenario=payload.scenario,
             trigger_mode=payload.trigger_mode,
             threshold_value=payload.threshold_value,
         )
         return {
-            "asset_id": asset_id,
-            "symbol": symbol,
-            "name": name,
-            "image_url": image_url,
+            "asset_id": normalized_asset_id,
+            "symbol": normalized_symbol,
+            "name": normalized_name,
+            "image_url": normalized_image_url,
             "time_behavior": payload.time_behavior,
             "recurring_start_date": payload.recurring_start_date,
             "recurring_end_date": payload.recurring_end_date,
