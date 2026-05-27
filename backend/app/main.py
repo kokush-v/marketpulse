@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.features.alerts.routes import router as alerts_router
 from app.features.auth.routes import router as auth_router
 from app.features.market_data.routes import router as market_data_router
 from app.features.news.routes import router as news_router
@@ -21,3 +22,4 @@ app.include_router(market_data_router)
 app.include_router(news_router)
 app.include_router(auth_router)
 app.include_router(watchlists_router)
+app.include_router(alerts_router)

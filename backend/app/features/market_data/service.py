@@ -8,6 +8,7 @@ from fastapi import status
 from app.core.config import settings
 from app.features.market_data.schemas import (
     AssetSearchResponse,
+    AssetSearchResultResponse,
     CoinNewsSearchResponse,
     MarketOverviewResponse,
 )
@@ -100,6 +101,33 @@ class MarketDataService:
             )
 
         return CoinNewsSearchResponse.model_validate(response.json())
+
+    async def find_asset(
+        self,
+        *,
+        asset_id: str,
+        symbol: str,
+        name: str,
+    ) -> AssetSearchResultResponse | None:
+        candidates = [asset_id.strip(), symbol.strip(), name.strip()]
+        seen: set[str] = set()
+        normalized_asset_id = asset_id.lower()
+
+        for candidate in candidates:
+            normalized_candidate = candidate.lower()
+            if not candidate or normalized_candidate in seen:
+                continue
+            seen.add(normalized_candidate)
+
+            matches = await self.search_assets(candidate)
+            exact = next(
+                (item for item in matches.items if item.asset_id.lower() == normalized_asset_id),
+                None,
+            )
+            if exact is not None:
+                return exact
+
+        return None
 
     def _map_status_code(self, upstream_status_code: int) -> int:
         if upstream_status_code == status.HTTP_429_TOO_MANY_REQUESTS:
