@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
 	Activity,
 	BadgeCheck,
+	BellRing,
 	ChevronsUpDown,
 	LayoutGrid,
 	LineChart,
@@ -55,6 +56,7 @@ const navGroups = [
 			label: "Workspace",
 			items: [
 				{ title: "Watchlist", icon: Star, href: "/watchlist" },
+				{ title: "Alerts", icon: BellRing, href: "/alerts" },
 				{ title: "Portfolio", icon: WalletCards, href: "/dashboard/portfolio", active: false, soon: true },
 				{ title: "Settings", icon: Settings, href: "/dashboard/settings", active: false, soon: true },
 			],
