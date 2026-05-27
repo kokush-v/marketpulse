@@ -135,7 +135,9 @@ Spec delta files must:
 - Include frontend tasks when UI behavior changes.
 - Include database/migration tasks when schema changes.
 - Include integration tasks when external APIs are involved.
-- Include tests.
+- Include backend or integration test tasks when they are relevant to the change.
+- Do not add frontend automated test tasks by default.
+- Add frontend test tasks only when the user explicitly asks for them or when frontend test coverage is a core scope item of the change itself.
 - Include OpenAPI/Orval regeneration tasks when API contracts change.
 - Include validation commands where relevant.
 
