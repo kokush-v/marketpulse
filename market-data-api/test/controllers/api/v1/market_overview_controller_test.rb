@@ -50,12 +50,18 @@ module Api
       end
 
       test "reuses cached overview payload within the cache window" do
-        factory_calls = 0
+        snapshot = {
+          "generated_at" => "2026-05-27T20:00:00Z",
+          "source" => "cached-market-data-api",
+          "ranking_basis" => "Top 25 crypto assets by market capitalization",
+          "hero_asset_id" => "bitcoin",
+          "featured_assets" => [],
+          "hero_chart" => [],
+          "top_gainers" => [],
+          "top_losers" => []
+        }
 
-        Rails.application.config.x.market_data_client_factory = lambda do
-          factory_calls += 1
-          StubClient.new
-        end
+        MarketOverview::SnapshotStore.new.write_snapshot(snapshot, metadata: { "refresh_reason" => "test" })
 
         get "/api/v1/market-overview"
         assert_response :success
@@ -63,7 +69,8 @@ module Api
         get "/api/v1/market-overview"
         assert_response :success
 
-        assert_equal 1, factory_calls
+        body = JSON.parse(response.body)
+        assert_equal "cached-market-data-api", body["source"]
       end
 
       class StubClient

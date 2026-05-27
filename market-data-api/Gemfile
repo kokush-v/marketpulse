@@ -10,6 +10,7 @@ gem "ostruct"
 gem "puma", "~> 5.6"
 gem "rack-cors", "~> 2.0"
 gem "rails", "~> 6.1.7"
+gem "redis", "~> 5.4"
 gem "mutex_m"
 gem "tzinfo-data", platforms: %i[mingw mswin x64_mingw jruby]
 
