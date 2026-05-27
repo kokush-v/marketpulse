@@ -25,15 +25,9 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    op.add_column(
-        "alert_rules", sa.Column("recurring_start_date", sa.Date(), nullable=True)
-    )
-    op.add_column(
-        "alert_rules", sa.Column("recurring_end_date", sa.Date(), nullable=True)
-    )
-    op.add_column(
-        "alert_rules", sa.Column("last_triggered_on", sa.Date(), nullable=True)
-    )
+    op.add_column("alert_rules", sa.Column("recurring_start_date", sa.Date(), nullable=True))
+    op.add_column("alert_rules", sa.Column("recurring_end_date", sa.Date(), nullable=True))
+    op.add_column("alert_rules", sa.Column("last_triggered_on", sa.Date(), nullable=True))
 
     op.create_check_constraint(
         "ck_alert_rules_time_behavior",
