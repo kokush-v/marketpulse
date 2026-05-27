@@ -7,6 +7,7 @@ module CoinGecko
   class Error < StandardError; end
   class ProviderError < Error; end
   class RateLimitError < Error; end
+  class RefreshInProgressError < Error; end
 
   class Client
     DEFAULT_BASE_URL = "https://api.coingecko.com/api/v3".freeze

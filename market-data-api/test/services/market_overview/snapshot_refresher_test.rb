@@ -45,11 +45,41 @@ module MarketOverview
       end
     end
 
-    class FakeSnapshotStore
-      attr_reader :snapshot, :last_metadata
+    test "returns a waited snapshot when another refresh is already in progress" do
+      waited_snapshot = { "generated_at" => "2026-05-27T19:30:00Z", "source" => "waited" }
+      snapshot_store = FakeSnapshotStore.new(lock_result: false, waited_snapshot: waited_snapshot)
+      refresher = SnapshotRefresher.new(
+        snapshot_store: snapshot_store,
+        logger: Logger.new(nil),
+        builder_factory: -> { FailingBuilder.new }
+      )
 
-      def initialize(snapshot: nil)
+      payload = refresher.refresh!(reason: "cold_start")
+
+      assert_equal "waited", payload["source"]
+      assert_equal SnapshotRefresher::REFRESH_WAIT_TIMEOUT_SECONDS, snapshot_store.wait_args[:timeout_seconds]
+    end
+
+    test "raises refresh in progress when another refresh is already in progress and no snapshot appears" do
+      snapshot_store = FakeSnapshotStore.new(lock_result: false)
+      refresher = SnapshotRefresher.new(
+        snapshot_store: snapshot_store,
+        logger: Logger.new(nil),
+        builder_factory: -> { FailingBuilder.new }
+      )
+
+      assert_raises(CoinGecko::RefreshInProgressError) do
+        refresher.refresh!(reason: "cold_start")
+      end
+    end
+
+    class FakeSnapshotStore
+      attr_reader :snapshot, :last_metadata, :wait_args
+
+      def initialize(snapshot: nil, lock_result: nil, waited_snapshot: nil)
         @snapshot = snapshot
+        @lock_result = lock_result
+        @waited_snapshot = waited_snapshot
       end
 
       def read_snapshot
@@ -63,7 +93,17 @@ module MarketOverview
       end
 
       def with_refresh_lock
+        return @lock_result unless @lock_result.nil?
+
         yield
+      end
+
+      def wait_for_snapshot(timeout_seconds:, poll_interval_seconds:)
+        @wait_args = {
+          timeout_seconds: timeout_seconds,
+          poll_interval_seconds: poll_interval_seconds
+        }
+        @waited_snapshot
       end
     end
 

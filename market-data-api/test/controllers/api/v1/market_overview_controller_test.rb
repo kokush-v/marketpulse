@@ -49,6 +49,16 @@ module Api
         assert_equal "An unexpected error occurred while loading market data.", body.dig("error", "detail")
       end
 
+      test "returns service unavailable when refresh is already in progress and no snapshot is available" do
+        Rails.application.config.x.market_data_client_factory = -> { RefreshInProgressClient.new }
+
+        get "/api/v1/market-overview"
+
+        assert_response :service_unavailable
+        body = JSON.parse(response.body)
+        assert_equal "refresh_in_progress", body.dig("error", "code")
+      end
+
       test "reuses cached overview payload within the cache window" do
         snapshot = {
           "generated_at" => "2026-05-27T20:00:00Z",
@@ -117,6 +127,13 @@ module Api
         def coins_markets(ids:, **)
           super
           raise CoinGecko::RateLimitError, "CoinGecko rate limit reached"
+        end
+      end
+
+      class RefreshInProgressClient < StubClient
+        def coins_markets(ids:, **)
+          super
+          raise CoinGecko::RefreshInProgressError, "Market overview refresh is already in progress"
         end
       end
     end

@@ -1,7 +1,7 @@
 # background-jobs Specification
 
 ## Purpose
-TBD - created by archiving change improve-market-data-service-concurrency. Update Purpose after archive.
+Define the background execution behavior used to refresh reusable snapshots and other off-request product work without blocking user-facing requests.
 ## Requirements
 ### Requirement: Refresh Public Market Overview Snapshots Outside the Request Path
 The system SHALL support a background execution path that refreshes reusable public market overview snapshots for production deployments of the Ruby market-data service.
@@ -16,4 +16,3 @@ The system SHALL support a background execution path that refreshes reusable pub
 - **When** a background refresh fails because of provider outage, malformed data, timeout, or rate limit
 - **Then** the system SHALL preserve the last successful snapshot according to the documented retention policy
 - **And** the failure SHALL be observable through logs or metrics
-

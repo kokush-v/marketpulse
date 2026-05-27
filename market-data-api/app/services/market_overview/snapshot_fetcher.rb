@@ -15,9 +15,20 @@ module MarketOverview
 
     def fetch!
       snapshot = @snapshot_store.read_snapshot
+      metadata = @snapshot_store.read_metadata
       if snapshot
-        @logger.info("[market-overview] cache hit for reusable snapshot")
-        return snapshot
+        if @snapshot_store.snapshot_fresh?(metadata)
+          @logger.info("[market-overview] cache hit for fresh reusable snapshot")
+          return snapshot
+        end
+
+        @logger.info("[market-overview] cache hit for stale reusable snapshot; attempting bounded refresh")
+        return @snapshot_refresher.refresh!(reason: "stale_snapshot")
+      end
+
+      if metadata
+        @logger.info("[market-overview] snapshot metadata exists without payload; attempting bounded refresh")
+        return @snapshot_refresher.refresh!(reason: "missing_snapshot_payload")
       end
 
       @logger.info("[market-overview] cache miss for reusable snapshot; attempting bounded cold start")

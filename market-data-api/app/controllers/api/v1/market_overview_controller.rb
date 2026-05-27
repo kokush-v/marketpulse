@@ -8,6 +8,7 @@ module Api
       rescue_from StandardError, with: :render_unexpected_error
       rescue_from CoinGecko::RateLimitError, with: :render_rate_limited
       rescue_from CoinGecko::ProviderError, with: :render_provider_error
+      rescue_from CoinGecko::RefreshInProgressError, with: :render_refresh_in_progress
 
       def show
         render json: market_overview_snapshot_fetcher.fetch!
@@ -32,6 +33,16 @@ module Api
           code: "provider_error",
           title: "Crypto market data is temporarily unavailable",
           detail: "Provider data is temporarily unavailable."
+        )
+      end
+
+      def render_refresh_in_progress(error)
+        log_error(error, severity: :warn)
+        render_error(
+          status: :service_unavailable,
+          code: "refresh_in_progress",
+          title: "Crypto market data is warming up",
+          detail: "Please retry in a few moments."
         )
       end
 

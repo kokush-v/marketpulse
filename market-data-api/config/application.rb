@@ -40,9 +40,6 @@ module MarketDataApi
     config.x.market_overview_refresh_lock_ttl = ENV.fetch("MARKET_OVERVIEW_REFRESH_LOCK_TTL_SECONDS", 300).to_i
     config.x.market_overview_refresh_task_name = "market_overview:refresh"
     config.x.market_overview_scheduler_description = "Run `bundle exec rake market_overview:refresh` at or under the snapshot freshness interval in production."
-    config.x.market_data_puma_workers = ENV.fetch("WEB_CONCURRENCY", [2, Etc.nprocessors].max).to_i
-    config.x.market_data_puma_min_threads = ENV.fetch("RAILS_MIN_THREADS", 3).to_i
-    config.x.market_data_puma_max_threads = ENV.fetch("RAILS_MAX_THREADS", 8).to_i
     config.x.market_data_client_factory = lambda do
       CoinGecko::Client.new(
         base_url: config.x.coingecko_api_base_url,

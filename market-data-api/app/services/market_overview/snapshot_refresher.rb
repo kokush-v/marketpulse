@@ -4,6 +4,9 @@ require Rails.root.join("app/services/market_overview/snapshot_store")
 
 module MarketOverview
   class SnapshotRefresher
+    REFRESH_WAIT_TIMEOUT_SECONDS = 2
+    REFRESH_WAIT_POLL_INTERVAL_SECONDS = 0.1
+
     def initialize(
       snapshot_store: SnapshotStore.new,
       logger: Rails.logger,
@@ -33,7 +36,13 @@ module MarketOverview
         @logger.info("[market-overview] refresh skipped because another refresh is already in progress")
         return existing_snapshot if existing_snapshot
 
-        raise CoinGecko::ProviderError, "Market overview refresh already in progress"
+        waited_snapshot = @snapshot_store.wait_for_snapshot(
+          timeout_seconds: REFRESH_WAIT_TIMEOUT_SECONDS,
+          poll_interval_seconds: REFRESH_WAIT_POLL_INTERVAL_SECONDS
+        )
+        return waited_snapshot if waited_snapshot
+
+        raise CoinGecko::RefreshInProgressError, "Market overview refresh is already in progress"
       end
 
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round
