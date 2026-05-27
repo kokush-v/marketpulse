@@ -28,6 +28,38 @@ module MarketOverview
       assert_equal 25, client.coin_details_calls.size
     end
 
+    test "degrades gracefully when some detail requests fail" do
+      client = PartiallyFailingCoinGeckoClient.new
+
+      payload = OverviewBuilder.new(
+        client: client,
+        ranked_asset_ids: %w[bitcoin ethereum tether],
+        ranking_basis: "Top 25 crypto assets by market capitalization",
+        detail_threads: 2,
+        logger: Logger.new(nil)
+      ).call
+
+      assert_equal 3, payload[:featured_assets].size
+      assert_equal "", payload[:featured_assets][1][:description]
+      assert_equal "", payload[:featured_assets][1][:homepage]
+      assert_equal [], payload[:featured_assets][1][:related_news]
+    end
+
+    test "defaults detail threads to one when the configured value is nil" do
+      client = FakeCoinGeckoClient.new
+
+      payload = OverviewBuilder.new(
+        client: client,
+        ranked_asset_ids: %w[bitcoin ethereum tether],
+        ranking_basis: "Top 25 crypto assets by market capitalization",
+        detail_threads: nil,
+        logger: Logger.new(nil)
+      ).call
+
+      assert_equal 3, payload[:featured_assets].size
+      assert_equal 3, client.coin_details_calls.size
+    end
+
     class FakeCoinGeckoClient
       attr_reader :coins_markets_calls, :coin_details_calls
 
@@ -75,6 +107,14 @@ module MarketOverview
             }
           ]
         }
+      end
+    end
+
+    class PartiallyFailingCoinGeckoClient < FakeCoinGeckoClient
+      def coin_details(id)
+        raise CoinGecko::ProviderError, "detail fetch failed" if id == "ethereum"
+
+        super
       end
     end
   end

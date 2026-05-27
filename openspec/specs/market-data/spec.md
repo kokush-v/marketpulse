@@ -41,16 +41,23 @@ The system SHALL obtain public crypto market overview data through a dedicated R
 - **And** the FastAPI backend retrieves the market overview from the Ruby market-data service
 - **And** the frontend does not call CoinGecko or the Ruby service directly
 
-#### Scenario: Provider limit or failure occurs
-- **Given** the Ruby market-data service depends on CoinGecko provider responses
-- **When** CoinGecko returns an error, malformed payload, or rate-limit response
-- **Then** the Ruby market-data service returns a safe upstream failure response
-- **And** the FastAPI backend maps that upstream failure into a frontend-safe response that allows the dashboard to degrade gracefully
+#### Scenario: Production request uses a reusable market overview snapshot
+- **Given** a production deployment has a successful reusable market overview snapshot available
+- **When** the frontend requests public crypto market data through the FastAPI backend
+- **Then** the Ruby market-data service SHALL prefer returning the reusable snapshot instead of rebuilding the full upstream payload during that request
 
-#### Scenario: Successful overview payload is reused within the cache window
-- **Given** the Ruby market-data service has successfully assembled a public crypto market overview payload
-- **When** another request for the same overview arrives within one hour
-- **Then** the Ruby market-data service MAY serve the cached overview payload instead of calling CoinGecko again
+#### Scenario: Provider limit or failure occurs during snapshot refresh
+- **Given** the Ruby market-data service depends on CoinGecko provider responses
+- **And** the service has a previously successful market overview snapshot
+- **When** CoinGecko returns an error, malformed payload, timeout, or rate-limit response during a refresh attempt
+- **Then** the Ruby market-data service SHALL keep the last successful snapshot available when policy allows
+- **And** the FastAPI backend continues to receive either a safe reusable snapshot response or a frontend-safe upstream failure response
+
+#### Scenario: No successful snapshot exists during a cold start
+- **Given** a production deployment does not yet have a successful market overview snapshot
+- **When** the first public market overview request arrives
+- **Then** the Ruby market-data service MAY perform a bounded initial build attempt
+- **And** if the initial build cannot complete within documented limits, the service SHALL return a safe upstream failure response
 
 ### Requirement: Keep the Dashboard Public While Supporting Optional Watchlist Context
 The system SHALL keep the market dashboard publicly accessible while allowing optional watchlist-related content for authenticated users when such data is available.
@@ -65,3 +72,4 @@ The system SHALL keep the market dashboard publicly accessible while allowing op
 - **When** the user opens the public dashboard
 - **Then** the dashboard MAY show watchlist-related content as an additive module without requiring a separate protected route
 - **And** any watchlist-related asset terminology shall align with crypto assets rather than stocks
+

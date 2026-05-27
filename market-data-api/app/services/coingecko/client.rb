@@ -7,13 +7,17 @@ module CoinGecko
   class Error < StandardError; end
   class ProviderError < Error; end
   class RateLimitError < Error; end
+  class RefreshInProgressError < Error; end
 
   class Client
     DEFAULT_BASE_URL = "https://api.coingecko.com/api/v3".freeze
 
-    def initialize(base_url: DEFAULT_BASE_URL, api_key: nil)
+    def initialize(base_url: DEFAULT_BASE_URL, api_key: nil, open_timeout: 5, read_timeout: 5, max_retries: 1)
       @base_url = base_url
       @api_key = api_key
+      @open_timeout = open_timeout
+      @read_timeout = read_timeout
+      @max_retries = max_retries
     end
 
     def coins_markets(ids:, vs_currency: "usd", sparkline: true, price_change_percentage: "24h")
@@ -55,17 +59,26 @@ module CoinGecko
       request["Accept"] = "application/json"
       request["x-cg-demo-api-key"] = @api_key if @api_key.to_s.strip != ""
 
-      response = Net::HTTP.start(
-        uri.host,
-        uri.port,
-        use_ssl: uri.scheme == "https",
-        open_timeout: 10,
-        read_timeout: 10
-      ) do |http|
-        http.request(request)
-      end
+      attempts = 0
 
-      handle_response(response)
+      begin
+        response = Net::HTTP.start(
+          uri.host,
+          uri.port,
+          use_ssl: uri.scheme == "https",
+          open_timeout: @open_timeout,
+          read_timeout: @read_timeout
+        ) do |http|
+          http.request(request)
+        end
+
+        handle_response(response)
+      rescue Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET, EOFError => error
+        attempts += 1
+        retry if attempts <= @max_retries
+
+        raise ProviderError, error.message.presence || "CoinGecko request failed"
+      end
     rescue JSON::ParserError => error
       raise ProviderError, "CoinGecko returned malformed JSON: #{error.message}"
     rescue StandardError => error

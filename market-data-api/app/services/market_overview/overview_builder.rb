@@ -4,10 +4,13 @@ module MarketOverview
     MOVERS_UNIVERSE_COUNT = 25
     MOVERS_COUNT = 4
 
-    def initialize(client:, ranked_asset_ids:, ranking_basis:)
+    def initialize(client:, ranked_asset_ids:, ranking_basis:, detail_threads: 4, logger: Rails.logger)
       @client = client
       @ranked_asset_ids = ranked_asset_ids
       @ranking_basis = ranking_basis
+      normalized_detail_threads = Integer(detail_threads || 1, exception: false) || 1
+      @detail_threads = [normalized_detail_threads, 1].max
+      @logger = logger
     end
 
     def call
@@ -37,8 +40,40 @@ module MarketOverview
     end
 
     def build_detail_map(rows)
-      rows.each_with_object({}) do |row, details|
-        details[row["id"]] = @client.coin_details(row["id"])
+      pending_rows = Array(rows)
+      queue = Queue.new
+      pending_rows.each { |row| queue << row }
+      details = {}
+      details_mutex = Mutex.new
+      worker_count = [@detail_threads, pending_rows.length].min
+
+      Array.new(worker_count) do
+        Thread.new do
+          loop do
+            row = begin
+              queue.pop(true)
+            rescue ThreadError
+              nil
+            end
+
+            break if row.nil?
+
+            begin
+              detail = @client.coin_details(row["id"])
+            rescue CoinGecko::Error => error
+              @logger.warn("[market-overview] coin_details degraded for #{row['id']}: #{error.class}: #{error.message}")
+              detail = nil
+            end
+
+            details_mutex.synchronize do
+              details[row["id"]] = detail
+            end
+          end
+        end
+      end.each(&:join)
+
+      pending_rows.each_with_object({}) do |row, detail_map|
+        detail_map[row["id"]] = details[row["id"]]
       end
     end
 

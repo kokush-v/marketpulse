@@ -1,37 +1,20 @@
 require Rails.root.join("app/services/coingecko/client")
 require Rails.root.join("app/services/market_overview/overview_builder")
+require Rails.root.join("app/services/market_overview/snapshot_fetcher")
 
 module Api
   module V1
     class MarketOverviewController < ApplicationController
-      CACHE_TTL = 1.hour
-
       rescue_from StandardError, with: :render_unexpected_error
       rescue_from CoinGecko::RateLimitError, with: :render_rate_limited
       rescue_from CoinGecko::ProviderError, with: :render_provider_error
+      rescue_from CoinGecko::RefreshInProgressError, with: :render_refresh_in_progress
 
       def show
-        payload = Rails.cache.fetch(cache_key, expires_in: CACHE_TTL) do
-          MarketOverview::OverviewBuilder.new(
-            client: Rails.application.config.x.market_data_client_factory.call,
-            ranked_asset_ids: Rails.application.config.x.market_overview_ranked_asset_ids,
-            ranking_basis: Rails.application.config.x.market_overview_ranking_basis
-          ).call
-        end
-
-        render json: payload
+        render json: market_overview_snapshot_fetcher.fetch!
       end
 
       private
-
-      def cache_key
-        [
-          "market-overview",
-          "v2",
-          Rails.application.config.x.market_overview_ranking_basis,
-          Array(Rails.application.config.x.market_overview_ranked_asset_ids).join("-")
-        ].join(":")
-      end
 
       def render_rate_limited(error)
         log_error(error, severity: :warn)
@@ -50,6 +33,16 @@ module Api
           code: "provider_error",
           title: "Crypto market data is temporarily unavailable",
           detail: "Provider data is temporarily unavailable."
+        )
+      end
+
+      def render_refresh_in_progress(error)
+        log_error(error, severity: :warn)
+        render_error(
+          status: :service_unavailable,
+          code: "refresh_in_progress",
+          title: "Crypto market data is warming up",
+          detail: "Please retry in a few moments."
         )
       end
 
@@ -78,6 +71,10 @@ module Api
             detail: detail
           }
         }, status: status
+      end
+
+      def market_overview_snapshot_fetcher
+        @market_overview_snapshot_fetcher ||= MarketOverview::SnapshotFetcher.new
       end
     end
   end

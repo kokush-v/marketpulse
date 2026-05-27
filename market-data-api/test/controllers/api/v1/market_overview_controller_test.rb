@@ -49,13 +49,29 @@ module Api
         assert_equal "An unexpected error occurred while loading market data.", body.dig("error", "detail")
       end
 
+      test "returns service unavailable when refresh is already in progress and no snapshot is available" do
+        Rails.application.config.x.market_data_client_factory = -> { RefreshInProgressClient.new }
+
+        get "/api/v1/market-overview"
+
+        assert_response :service_unavailable
+        body = JSON.parse(response.body)
+        assert_equal "refresh_in_progress", body.dig("error", "code")
+      end
+
       test "reuses cached overview payload within the cache window" do
-        factory_calls = 0
+        snapshot = {
+          "generated_at" => "2026-05-27T20:00:00Z",
+          "source" => "cached-market-data-api",
+          "ranking_basis" => "Top 25 crypto assets by market capitalization",
+          "hero_asset_id" => "bitcoin",
+          "featured_assets" => [],
+          "hero_chart" => [],
+          "top_gainers" => [],
+          "top_losers" => []
+        }
 
-        Rails.application.config.x.market_data_client_factory = lambda do
-          factory_calls += 1
-          StubClient.new
-        end
+        MarketOverview::SnapshotStore.new.write_snapshot(snapshot, metadata: { "refresh_reason" => "test" })
 
         get "/api/v1/market-overview"
         assert_response :success
@@ -63,7 +79,8 @@ module Api
         get "/api/v1/market-overview"
         assert_response :success
 
-        assert_equal 1, factory_calls
+        body = JSON.parse(response.body)
+        assert_equal "cached-market-data-api", body["source"]
       end
 
       class StubClient
@@ -110,6 +127,13 @@ module Api
         def coins_markets(ids:, **)
           super
           raise CoinGecko::RateLimitError, "CoinGecko rate limit reached"
+        end
+      end
+
+      class RefreshInProgressClient < StubClient
+        def coins_markets(ids:, **)
+          super
+          raise CoinGecko::RefreshInProgressError, "Market overview refresh is already in progress"
         end
       end
     end
