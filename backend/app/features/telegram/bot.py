@@ -33,7 +33,7 @@ class TelegramBotFlowService:
 class TelegramBotApp:
     def __init__(self, service_factory: ServiceFactory) -> None:
         self._service_factory = service_factory
-        self._bot = Bot(token=settings.telegram_bot_token)
+        self._bot: Bot | None = None
         self._dispatcher = Dispatcher()
         self._bot_username: str | None = None
         router = Router()
@@ -109,20 +109,34 @@ class TelegramBotApp:
 
         self._dispatcher.include_router(router)
 
+    def _token_is_configured(self) -> bool:
+        token = settings.telegram_bot_token.strip()
+        return bool(token) and token != "replace-me" and ":" in token
+
+    def _get_bot(self) -> Bot:
+        if self._bot is None:
+            self._bot = Bot(token=settings.telegram_bot_token)
+        return self._bot
+
     async def initialize(self) -> None:
-        if settings.telegram_bot_token == "replace-me":
+        if not self._token_is_configured():
             logger.info("Telegram bot startup skipped: TELEGRAM_BOT_TOKEN is not configured.")
             return
 
-        me = await self._bot.get_me()
+        me = await self._get_bot().get_me()
         self._bot_username = me.username or settings.telegram_bot_username
         logger.info("%s is ready", self._bot_username)
 
     async def shutdown(self) -> None:
-        await self._bot.session.close()
+        if self._bot is not None:
+            await self._bot.session.close()
 
     async def handle_update(self, payload: dict[str, object]) -> None:
-        await self._dispatcher.feed_raw_update(self._bot, payload)
+        if not self._token_is_configured():
+            raise RuntimeError("Telegram bot is not configured.")
+        await self._dispatcher.feed_raw_update(self._get_bot(), payload)
 
     async def send_message(self, *, chat_id: int, text: str) -> None:
-        await self._bot.send_message(chat_id=chat_id, text=text)
+        if not self._token_is_configured():
+            raise RuntimeError("Telegram bot is not configured.")
+        await self._get_bot().send_message(chat_id=chat_id, text=text)
