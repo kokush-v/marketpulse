@@ -211,12 +211,21 @@ class FakeBotApp:
 
 
 class FakeSupabaseAdminClient:
-    def __init__(self, *, display_name: str = "MarketPulse User", avatar_url: str | None = None):
+    def __init__(
+        self,
+        *,
+        display_name: str = "MarketPulse User",
+        avatar_url: str | None = None,
+        user_exists: bool = True,
+    ):
         self._display_name = display_name
         self._avatar_url = avatar_url
+        self._user_exists = user_exists
         self.auth = SimpleNamespace(admin=self)
 
     async def get_user_by_id(self, _uid: str):
+        if not self._user_exists:
+            return SimpleNamespace(user=None)
         return SimpleNamespace(
             user=SimpleNamespace(
                 user_metadata={
@@ -623,6 +632,58 @@ async def test_bot_flow_returns_safe_profile_outcome_when_not_linked() -> None:
 
 
 @pytest.mark.asyncio
+async def test_bot_flow_returns_safe_profile_outcome_when_supabase_user_missing() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    auth_repository = FakeAuthRepository()
+    auth_repository.users[user.id] = user
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        auth_repository,
+        FakeSupabaseAdminClient(user_exists=False),
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "profile_unavailable"
+    assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_returns_safe_profile_outcome_when_admin_client_unavailable() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    auth_repository = FakeAuthRepository()
+    auth_repository.users[user.id] = user
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+
+    async def _raise_runtime_error():
+        raise RuntimeError("SUPABASE_SECRET_KEY is not configured.")
+
+    flow = TelegramBotFlow(
+        repository,
+        auth_repository,
+        supabase_admin_client_factory=_raise_runtime_error,
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "profile_unavailable"
+    assert profile is None
+
+
+@pytest.mark.asyncio
 async def test_bot_flow_unlink_requires_confirmation() -> None:
     user = _make_user()
     repository = FakeTelegramRepository()
@@ -642,6 +703,31 @@ async def test_bot_flow_unlink_requires_confirmation() -> None:
 
     assert result.outcome == "unlink_confirmation_required"
     assert result.requires_confirmation is True
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_unlink_does_not_require_supabase_admin_client() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+
+    async def _unexpected_admin_client_call():
+        raise AssertionError("Supabase admin client should not be requested.")
+
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        supabase_admin_client_factory=_unexpected_admin_client_call,
+    )
+
+    result = await flow.request_unlink(telegram_user_id=321)
+
+    assert result.outcome == "unlink_confirmation_required"
 
 
 @pytest.mark.asyncio

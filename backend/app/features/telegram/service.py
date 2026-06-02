@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import logging
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -59,13 +59,7 @@ async def _transaction_context(repository: object) -> AsyncIterator[None]:
         return
 
     if session.in_transaction():
-        try:
-            yield
-        except Exception:
-            await session.rollback()
-            raise
-        else:
-            await session.commit()
+        yield
         return
 
     async with session.begin():
@@ -231,11 +225,15 @@ class TelegramBotFlow(TelegramBotFlowService):
         self,
         repository: TelegramRepository,
         auth_repository: AuthRepository,
-        supabase_admin_client: AsyncClient,
+        supabase_admin_client: AsyncClient | None = None,
+        supabase_admin_client_factory: Callable[[], Awaitable[AsyncClient]] | None = None,
     ) -> None:
         self.repository = repository
         self.auth_repository = auth_repository
         self.supabase_admin_client = supabase_admin_client
+        self.supabase_admin_client_factory = (
+            supabase_admin_client_factory or get_supabase_admin_client
+        )
 
     async def consume_start_token(
         self,
@@ -364,13 +362,39 @@ class TelegramBotFlow(TelegramBotFlowService):
             )
 
         try:
-            auth_user = await self.supabase_admin_client.auth.admin.get_user_by_id(
-                str(user.supabase_user_id)
+            admin_client = self.supabase_admin_client
+            if admin_client is None:
+                admin_client = await self.supabase_admin_client_factory()
+                self.supabase_admin_client = admin_client
+        except RuntimeError:
+            logger.warning("Supabase admin client is not configured for Telegram profile lookup.")
+            return (
+                TelegramBotResult(
+                    outcome="profile_unavailable",
+                    message="The linked MarketPulse profile is temporarily unavailable.",
+                ),
+                None,
             )
+
+        try:
+            auth_user = await admin_client.auth.admin.get_user_by_id(str(user.supabase_user_id))
         except Exception:
             logger.exception(
                 "Supabase profile lookup failed for Telegram user %s.",
                 telegram_user_id,
+            )
+            return (
+                TelegramBotResult(
+                    outcome="profile_unavailable",
+                    message="The linked MarketPulse profile is temporarily unavailable.",
+                ),
+                None,
+            )
+
+        if auth_user.user is None:
+            logger.warning(
+                "Supabase profile lookup returned no user for %s.",
+                user.supabase_user_id,
             )
             return (
                 TelegramBotResult(
@@ -541,7 +565,6 @@ async def _build_bot_flow_service() -> AsyncIterator[TelegramBotFlow]:
         yield TelegramBotFlow(
             TelegramRepository(session),
             AuthRepository(session),
-            await get_supabase_admin_client(),
         )
 
 
