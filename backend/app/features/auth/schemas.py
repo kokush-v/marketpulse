@@ -9,6 +9,8 @@ class CurrentUserResponse(BaseModel):
     supabase_user_id: UUID
     email: str
     created_at: datetime
+    display_name: str | None = None
+    avatar_url: str | None = None
 
     model_config = {"from_attributes": True}
 

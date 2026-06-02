@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -28,11 +27,10 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarRail,
-	useSidebar,
 } from "@/shared/components/ui/sidebar";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -42,6 +40,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { useMeAuthMeGet } from "@/src/api/generated/auth/auth";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 const navGroups = [
@@ -129,43 +128,12 @@ export function AppSidebar() {
 }
 
 function UserPanel() {
-	const { isMobile } = useSidebar();
-	const [user, setUser] = React.useState<{ email?: string; id?: string; initials?: string } | null>(null);
-	const [isLoading, setIsLoading] = React.useState(true);
-
-	React.useEffect(() => {
-		async function fetchUser() {
-			try {
-				const supabase = SupabaseBrowserClient.getInstance();
-				const {
-					data: { user: authUser },
-				} = await supabase.auth.getUser();
-
-				if (authUser) {
-					const email = authUser.email || "";
-					const initials = email
-						.split("@")[0]
-						.split(".")
-						.map((p) => p[0])
-						.join("")
-						.toUpperCase()
-						.slice(0, 2);
-
-					setUser({
-						email,
-						id: authUser.id,
-						initials: initials || "U",
-					});
-				}
-			} catch (error) {
-				console.error("Failed to fetch user:", error);
-			} finally {
-				setIsLoading(false);
-			}
-		}
-
-		fetchUser();
-	}, []);
+	const meQuery = useMeAuthMeGet({
+		query: {
+			staleTime: 60_000,
+			retry: 1,
+		},
+	});
 
 	const handleLogout = async () => {
 		try {
@@ -179,17 +147,36 @@ function UserPanel() {
 		}
 	};
 
-	if (isLoading || !user) {
+	if (meQuery.isLoading) {
 		return (
 			<SidebarMenu>
 				<SidebarMenuItem>
-					<div className="px-2 py-1.5 text-xs text-muted-foreground">
-						{isLoading ? "Loading..." : "Not authenticated"}
-					</div>
+					<div className="px-2 py-1.5 text-xs text-muted-foreground">Loading...</div>
 				</SidebarMenuItem>
 			</SidebarMenu>
 		);
 	}
+
+	if (meQuery.isError || !meQuery.data) {
+		return (
+			<SidebarMenu>
+				<SidebarMenuItem>
+					<div className="px-2 py-1.5 text-xs text-muted-foreground">Profile unavailable</div>
+				</SidebarMenuItem>
+			</SidebarMenu>
+		);
+	}
+
+	const user = meQuery.data;
+	const primaryLabel = user.display_name?.trim() || user.email?.split("@")[0] || "User";
+	const initialsSource = user.display_name?.trim() || user.email || "";
+	const initials = initialsSource
+		.split(/[\s.@_-]+/)
+		.filter(Boolean)
+		.map((part) => part[0])
+		.join("")
+		.toUpperCase()
+		.slice(0, 2) || "U";
 
 	return (
 		<SidebarMenu>
@@ -200,10 +187,16 @@ function UserPanel() {
 							size="lg"
 							className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 							<Avatar className="h-8 w-8 rounded-lg">
-								<AvatarFallback className="rounded-lg text-xs font-semibold">{user.initials}</AvatarFallback>
+								<AvatarImage
+									src={user.avatar_url ?? undefined}
+									alt={primaryLabel}
+									referrerPolicy="no-referrer"
+									crossOrigin="anonymous"
+								/>
+								<AvatarFallback className="rounded-lg text-xs font-semibold">{initials}</AvatarFallback>
 							</Avatar>
 							<div className="grid flex-1 text-start text-sm leading-tight">
-								<span className="truncate font-semibold text-foreground">{user.email?.split("@")[0]}</span>
+								<span className="truncate font-semibold text-foreground">{primaryLabel}</span>
 								<span className="truncate text-xs text-muted-foreground">{user.email}</span>
 							</div>
 							<ChevronsUpDown className="ms-auto size-4 text-muted-foreground" />
@@ -217,10 +210,16 @@ function UserPanel() {
 						<DropdownMenuLabel className="p-0 font-normal">
 							<div className="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
 								<Avatar className="h-8 w-8 rounded-lg">
-									<AvatarFallback className="rounded-lg text-xs font-semibold">{user.initials}</AvatarFallback>
+									<AvatarImage
+										src={user.avatar_url ?? undefined}
+										alt={primaryLabel}
+										referrerPolicy="no-referrer"
+										crossOrigin="anonymous"
+									/>
+									<AvatarFallback className="rounded-lg text-xs font-semibold">{initials}</AvatarFallback>
 								</Avatar>
 								<div className="grid flex-1 text-start text-sm leading-tight">
-									<span className="truncate font-semibold">{user.email?.split("@")[0]}</span>
+									<span className="truncate font-semibold">{primaryLabel}</span>
 									<span className="truncate text-xs text-muted-foreground">{user.email}</span>
 								</div>
 							</div>

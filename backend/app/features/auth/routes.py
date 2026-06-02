@@ -85,9 +85,10 @@ async def update_password(
 
 @router.get("/me", response_model=CurrentUserResponse)
 async def me(
+    service: Annotated[AuthService, Depends()],
     current_user: Annotated[User, current_user_dependency],
 ) -> CurrentUserResponse:
-    return CurrentUserResponse.model_validate(current_user)
+    return await service.get_current_user_profile(current_user)
 
 
 @router.post("/sign-out", response_model=SignOutResponse)

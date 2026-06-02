@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Annotated
 
@@ -19,9 +20,12 @@ from app.features.auth.models import User
 from app.features.auth.repository import AuthRepository
 from app.features.auth.schemas import (
     AuthSessionResponse,
+    CurrentUserResponse,
     SignOutResponse,
 )
-from app.features.auth.supabase_client import get_supabase_client
+from app.features.auth.supabase_client import get_supabase_admin_client, get_supabase_client
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def get_auth_repository(
@@ -38,6 +42,7 @@ class AuthService:
     ) -> None:
         self.repository = repository
         self.supabase = supabase
+        self.supabase_admin_client: AsyncClient | None = None
 
     def _raise_auth_provider_error(
         self,
@@ -120,6 +125,51 @@ class AuthService:
             email=email,
         )
         return user
+
+    async def get_current_user_profile(self, user: User) -> CurrentUserResponse:
+        profile = CurrentUserResponse.model_validate(user)
+
+        try:
+            admin_client = self.supabase_admin_client
+            if admin_client is None:
+                admin_client = await get_supabase_admin_client()
+                self.supabase_admin_client = admin_client
+        except Exception:
+            logger.info(
+                "Supabase admin client setup failed for auth profile enrichment.",
+                exc_info=True,
+            )
+            return profile
+
+        try:
+            auth_user = await admin_client.auth.admin.get_user_by_id(str(user.supabase_user_id))
+        except Exception:
+            logger.info(
+                "Supabase auth profile enrichment failed for user %s.",
+                user.supabase_user_id,
+                exc_info=True,
+            )
+            return profile
+
+        raw_metadata = getattr(getattr(auth_user, "user", None), "user_metadata", None)
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        display_name = (
+            metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
+        )
+        avatar_url = metadata.get("avatar_url") or metadata.get("picture")
+        normalized_display_name = None
+        if isinstance(display_name, str):
+            normalized_display_name = display_name.strip() or None
+        normalized_avatar_url = None
+        if isinstance(avatar_url, str):
+            normalized_avatar_url = avatar_url.strip() or None
+
+        return profile.model_copy(
+            update={
+                "display_name": normalized_display_name,
+                "avatar_url": normalized_avatar_url,
+            }
+        )
 
     async def sync_local_user(self, supabase_user_id: uuid.UUID, email: str) -> tuple[User, bool]:
         return await self._get_or_create_user(
