@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.auth.models import User
@@ -16,14 +16,17 @@ class AuthRepository:
         return result.scalar_one_or_none()
 
     async def create_user(self, supabase_user_id: uuid.UUID, email: str) -> User:
-        user = User(supabase_user_id=supabase_user_id, email=email.lower())
-        self.session.add(user)
+        stmt = (
+            insert(User)
+            .values(supabase_user_id=supabase_user_id, email=email.lower())
+            .returning(User)
+        )
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        await self.session.refresh(user)
-        return user
+        return result.scalar_one()
 
     async def update_user_email(self, user: User, email: str) -> User:
-        user.email = email.lower()
+        stmt = update(User).where(User.id == user.id).values(email=email.lower()).returning(User)
+        result = await self.session.execute(stmt)
         await self.session.commit()
-        await self.session.refresh(user)
-        return user
+        return result.scalar_one()
