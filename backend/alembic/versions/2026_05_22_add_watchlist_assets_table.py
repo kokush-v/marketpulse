@@ -1,7 +1,7 @@
 """add watchlist assets table
 
-Revision ID: 0003_add_watchlist_assets_table
-Revises: 0002_add_users_table_for_auth
+Revision ID: b91d4e6a2c73
+Revises: 84c3e1b7d5f2
 Create Date: 2026-05-22 00:00:00.000000
 """
 
@@ -10,8 +10,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "0003_add_watchlist_assets_table"
-down_revision = "0002_add_users_table_for_auth"
+revision = "b91d4e6a2c73"
+down_revision = "84c3e1b7d5f2"
 branch_labels = None
 depends_on = None
 

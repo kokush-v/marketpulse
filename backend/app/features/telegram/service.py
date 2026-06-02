@@ -13,10 +13,13 @@ from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from supabase import AsyncClient
 
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal, get_async_session
 from app.features.auth.models import User
+from app.features.auth.repository import AuthRepository
+from app.features.auth.supabase_client import get_supabase_admin_client
 from app.features.notifications.repository import NotificationRepository
 from app.features.notifications.schemas import NotificationResponse
 from app.features.notifications.service import get_notification_repository
@@ -24,6 +27,7 @@ from app.features.telegram.bot import TelegramBotApp, TelegramBotFlowService
 from app.features.telegram.models import TelegramConnectionToken
 from app.features.telegram.repository import TelegramRepository
 from app.features.telegram.schemas import (
+    TelegramBotProfile,
     TelegramBotResult,
     TelegramConnectionSummary,
     TelegramDisconnectResponse,
@@ -52,6 +56,16 @@ async def _transaction_context(repository: object) -> AsyncIterator[None]:
     session = getattr(repository, "session", None)
     if session is None:
         yield
+        return
+
+    if session.in_transaction():
+        try:
+            yield
+        except Exception:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
         return
 
     async with session.begin():
@@ -144,6 +158,19 @@ class TelegramService:
                     ),
                 )
 
+            if active_connection.last_test_message_id is not None:
+                try:
+                    await bot_app.delete_message(
+                        chat_id=active_connection.telegram_chat_id,
+                        message_id=active_connection.last_test_message_id,
+                    )
+                except Exception:
+                    logger.info(
+                        "Telegram test message cleanup failed for user %s",
+                        user.id,
+                        exc_info=True,
+                    )
+
             notification = await self.notification_repository.create_notification(
                 user_id=user.id,
                 notification_type="alert",
@@ -154,7 +181,7 @@ class TelegramService:
                 commit=False,
             )
             try:
-                await bot_app.send_message(
+                message_id = await bot_app.send_message(
                     chat_id=active_connection.telegram_chat_id,
                     text=(
                         "MarketPulse test notification\n\n"
@@ -172,6 +199,11 @@ class TelegramService:
                     message="Telegram test notification could not be delivered right now.",
                 ) from exc
 
+            await self.repository.update_last_test_message_id(
+                active_connection,
+                last_test_message_id=message_id,
+                commit=False,
+            )
             await self.notification_repository.mark_delivered(notification, commit=False)
         return TelegramTestNotificationResponse(
             success=True,
@@ -195,8 +227,15 @@ class TelegramService:
 
 
 class TelegramBotFlow(TelegramBotFlowService):
-    def __init__(self, repository: TelegramRepository) -> None:
+    def __init__(
+        self,
+        repository: TelegramRepository,
+        auth_repository: AuthRepository,
+        supabase_admin_client: AsyncClient,
+    ) -> None:
         self.repository = repository
+        self.auth_repository = auth_repository
+        self.supabase_admin_client = supabase_admin_client
 
     async def consume_start_token(
         self,
@@ -295,6 +334,127 @@ class TelegramBotFlow(TelegramBotFlowService):
             message="The current Telegram link was left unchanged.",
         )
 
+    async def get_profile(
+        self,
+        *,
+        telegram_user_id: int,
+    ) -> tuple[TelegramBotResult, TelegramBotProfile | None]:
+        connection = await self.repository.get_active_connection_for_telegram_user(telegram_user_id)
+        if connection is None:
+            return (
+                TelegramBotResult(
+                    outcome="not_linked",
+                    message="This Telegram account is not linked to a MarketPulse profile.",
+                ),
+                None,
+            )
+
+        user = await self.auth_repository.get_user_by_id(connection.user_id)
+        if user is None:
+            logger.warning(
+                "Linked Telegram profile lookup failed: local user %s is missing.",
+                connection.user_id,
+            )
+            return (
+                TelegramBotResult(
+                    outcome="profile_unavailable",
+                    message="The linked MarketPulse profile is temporarily unavailable.",
+                ),
+                None,
+            )
+
+        try:
+            auth_user = await self.supabase_admin_client.auth.admin.get_user_by_id(
+                str(user.supabase_user_id)
+            )
+        except Exception:
+            logger.exception(
+                "Supabase profile lookup failed for Telegram user %s.",
+                telegram_user_id,
+            )
+            return (
+                TelegramBotResult(
+                    outcome="profile_unavailable",
+                    message="The linked MarketPulse profile is temporarily unavailable.",
+                ),
+                None,
+            )
+
+        metadata = auth_user.user.user_metadata or {}
+        display_name = (
+            metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
+        )
+        if not isinstance(display_name, str) or not display_name.strip():
+            logger.warning(
+                "Supabase profile for user %s is missing a display name.",
+                user.supabase_user_id,
+            )
+            return (
+                TelegramBotResult(
+                    outcome="profile_unavailable",
+                    message="The linked MarketPulse profile is temporarily unavailable.",
+                ),
+                None,
+            )
+
+        avatar_url = metadata.get("avatar_url") or metadata.get("picture")
+        if avatar_url is not None and not isinstance(avatar_url, str):
+            avatar_url = None
+
+        return (
+            TelegramBotResult(
+                outcome="profile_shown",
+                message="Profile loaded.",
+            ),
+            TelegramBotProfile(
+                avatar_url=avatar_url,
+                email=user.email,
+                display_name=display_name.strip(),
+            ),
+        )
+
+    async def request_unlink(self, *, telegram_user_id: int) -> TelegramBotResult:
+        connection = await self.repository.get_active_connection_for_telegram_user(telegram_user_id)
+        if connection is None:
+            return TelegramBotResult(
+                outcome="not_linked",
+                message="This Telegram account is not linked to a MarketPulse profile.",
+            )
+        return TelegramBotResult(
+            outcome="unlink_confirmation_required",
+            message="Unlink this Telegram account from your MarketPulse profile?",
+            requires_confirmation=True,
+        )
+
+    async def confirm_unlink(self, *, telegram_user_id: int) -> TelegramBotResult:
+        async with _transaction_context(self.repository):
+            connection = await self.repository.get_active_connection_for_telegram_user_for_update(
+                telegram_user_id
+            )
+            if connection is None:
+                return TelegramBotResult(
+                    outcome="not_linked",
+                    message="This Telegram account is not linked to a MarketPulse profile.",
+                )
+            await self.repository.deactivate_connection(connection, commit=False)
+            await self.repository.revoke_tokens_for_user(connection.user_id, commit=False)
+        return TelegramBotResult(
+            outcome="unlinked",
+            message="Telegram was unlinked from your MarketPulse profile.",
+        )
+
+    async def cancel_unlink(self, *, telegram_user_id: int) -> TelegramBotResult:
+        connection = await self.repository.get_active_connection_for_telegram_user(telegram_user_id)
+        if connection is None:
+            return TelegramBotResult(
+                outcome="not_linked",
+                message="This Telegram account is not linked to a MarketPulse profile.",
+            )
+        return TelegramBotResult(
+            outcome="unlink_cancelled",
+            message="The current Telegram link was left unchanged.",
+        )
+
 
 class TelegramDeliveryError(Exception):
     pass
@@ -378,7 +538,11 @@ class TelegramNotificationDispatcher:
 @asynccontextmanager
 async def _build_bot_flow_service() -> AsyncIterator[TelegramBotFlow]:
     async with AsyncSessionLocal() as session:
-        yield TelegramBotFlow(TelegramRepository(session))
+        yield TelegramBotFlow(
+            TelegramRepository(session),
+            AuthRepository(session),
+            await get_supabase_admin_client(),
+        )
 
 
 def get_telegram_bot_app() -> TelegramBotApp:

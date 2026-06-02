@@ -1,7 +1,7 @@
 """add alert time behavior fields
 
-Revision ID: 0005_alert_time_behavior
-Revises: 0004_add_alert_rules_table
+Revision ID: d8a4c31f7b62
+Revises: c2f7a4d8e931
 Create Date: 2026-05-27 00:00:00.000000
 """
 
@@ -9,8 +9,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0005_alert_time_behavior"
-down_revision = "0004_add_alert_rules_table"
+revision = "d8a4c31f7b62"
+down_revision = "c2f7a4d8e931"
 branch_labels = None
 depends_on = None
 

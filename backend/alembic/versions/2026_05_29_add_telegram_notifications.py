@@ -1,7 +1,7 @@
 """add telegram connections and notifications
 
-Revision ID: 0006_add_telegram_notifications
-Revises: 0005_alert_time_behavior
+Revision ID: e5b7d2a9c418
+Revises: d8a4c31f7b62
 Create Date: 2026-05-29 00:00:00.000000
 """
 
@@ -10,8 +10,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "0006_add_telegram_notifications"
-down_revision = "0005_alert_time_behavior"
+revision = "e5b7d2a9c418"
+down_revision = "d8a4c31f7b62"
 branch_labels = None
 depends_on = None
 
