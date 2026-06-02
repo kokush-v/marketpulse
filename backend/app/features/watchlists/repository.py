@@ -53,10 +53,10 @@ class WatchlistRepository:
         )
         try:
             result = await self.session.execute(stmt)
+            await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
             raise WatchlistAssetAlreadySavedError from exc
-        await self.session.commit()
         return result.scalar_one()
 
     async def delete_asset_for_user(self, user_id: uuid.UUID, asset_id: str) -> bool:

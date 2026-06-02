@@ -50,6 +50,7 @@ class NotificationRepository:
         delivery_status: str,
         message_summary: str,
         related_alert_id: uuid.UUID | None,
+        commit: bool = True,
     ) -> NotificationRecord:
         stmt = (
             insert(NotificationRecord)
@@ -64,10 +65,16 @@ class NotificationRepository:
             .returning(NotificationRecord)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
-    async def mark_delivered(self, notification: NotificationRecord) -> NotificationRecord:
+    async def mark_delivered(
+        self,
+        notification: NotificationRecord,
+        *,
+        commit: bool = True,
+    ) -> NotificationRecord:
         stmt = (
             update(NotificationRecord)
             .where(NotificationRecord.id == notification.id)
@@ -78,7 +85,8 @@ class NotificationRepository:
             .returning(NotificationRecord)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
     async def mark_failed(
@@ -86,6 +94,7 @@ class NotificationRepository:
         notification: NotificationRecord,
         *,
         safe_error_message: str,
+        commit: bool = True,
     ) -> NotificationRecord:
         stmt = (
             update(NotificationRecord)
@@ -98,5 +107,6 @@ class NotificationRepository:
             .returning(NotificationRecord)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()

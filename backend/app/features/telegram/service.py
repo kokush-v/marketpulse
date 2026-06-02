@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -30,6 +31,8 @@ from app.features.telegram.schemas import (
     TelegramTestNotificationResponse,
 )
 
+logger = logging.getLogger("uvicorn.error")
+
 
 def get_telegram_repository(
     session: Annotated[AsyncSession, Depends(get_async_session)],
@@ -42,6 +45,17 @@ def _token_hash(token: str) -> str:
 
 
 TEST_NOTIFICATION_SUMMARY = "Telegram test notification"
+
+
+@asynccontextmanager
+async def _transaction_context(repository: object) -> AsyncIterator[None]:
+    session = getattr(repository, "session", None)
+    if session is None:
+        yield
+        return
+
+    async with session.begin():
+        yield
 
 
 class TelegramServiceError(Exception):
@@ -61,6 +75,11 @@ class TelegramService:
     ) -> None:
         self.repository = repository
         self.notification_repository = notification_repository
+
+    @asynccontextmanager
+    async def _transaction(self) -> AsyncIterator[None]:
+        async with _transaction_context(self.repository):
+            yield
 
     async def get_integration_state(self, user: User) -> TelegramIntegrationResponse:
         active_connection = await self.repository.get_active_connection_for_user(user.id)
@@ -99,56 +118,61 @@ class TelegramService:
         return TelegramDisconnectResponse(success=True, state="not_connected")
 
     async def send_test_notification(self, user: User) -> TelegramTestNotificationResponse:
-        active_connection = await self.repository.get_active_connection_for_user_for_update(user.id)
-        if active_connection is None:
-            raise TelegramServiceError(
-                status_code=409,
-                message="Connect Telegram before sending a test notification.",
-            )
-
-        latest_attempt = await self.notification_repository.get_latest_notification_for_user(
-            user_id=user.id,
-            channel="telegram",
-            message_summary=TEST_NOTIFICATION_SUMMARY,
-        )
-        cooldown_seconds = settings.telegram_test_notification_cooldown_seconds
-        cooldown_threshold = datetime.now(tz=UTC) - timedelta(seconds=cooldown_seconds)
-        if latest_attempt is not None and latest_attempt.created_at > cooldown_threshold:
-            raise TelegramServiceError(
-                status_code=429,
-                message=(
-                    f"Wait {cooldown_seconds} seconds before sending another test notification."
-                ),
-            )
-
-        notification = await self.notification_repository.create_notification(
-            user_id=user.id,
-            notification_type="alert",
-            channel="telegram",
-            delivery_status="pending",
-            message_summary=TEST_NOTIFICATION_SUMMARY,
-            related_alert_id=None,
-        )
         bot_app = get_telegram_bot_app()
-        try:
-            await bot_app.send_message(
-                chat_id=active_connection.telegram_chat_id,
-                text=(
-                    "MarketPulse test notification\n\n"
-                    "Your Telegram connection is active and ready for alert delivery."
-                ),
+        async with self._transaction():
+            active_connection = await self.repository.get_active_connection_for_user_for_update(
+                user.id
             )
-        except Exception as exc:
-            await self.notification_repository.mark_failed(
-                notification,
-                safe_error_message="Telegram test notification failed.",
-            )
-            raise TelegramServiceError(
-                status_code=502,
-                message="Telegram test notification could not be delivered right now.",
-            ) from exc
+            if active_connection is None:
+                raise TelegramServiceError(
+                    status_code=409,
+                    message="Connect Telegram before sending a test notification.",
+                )
 
-        await self.notification_repository.mark_delivered(notification)
+            latest_attempt = await self.notification_repository.get_latest_notification_for_user(
+                user_id=user.id,
+                channel="telegram",
+                message_summary=TEST_NOTIFICATION_SUMMARY,
+            )
+            cooldown_seconds = settings.telegram_test_notification_cooldown_seconds
+            cooldown_threshold = datetime.now(tz=UTC) - timedelta(seconds=cooldown_seconds)
+            if latest_attempt is not None and latest_attempt.created_at > cooldown_threshold:
+                raise TelegramServiceError(
+                    status_code=429,
+                    message=(
+                        f"Wait {cooldown_seconds} seconds before sending another test notification."
+                    ),
+                )
+
+            notification = await self.notification_repository.create_notification(
+                user_id=user.id,
+                notification_type="alert",
+                channel="telegram",
+                delivery_status="pending",
+                message_summary=TEST_NOTIFICATION_SUMMARY,
+                related_alert_id=None,
+                commit=False,
+            )
+            try:
+                await bot_app.send_message(
+                    chat_id=active_connection.telegram_chat_id,
+                    text=(
+                        "MarketPulse test notification\n\n"
+                        "Your Telegram connection is active and ready for alert delivery."
+                    ),
+                )
+            except Exception as exc:
+                await self.notification_repository.mark_failed(
+                    notification,
+                    safe_error_message="Telegram test notification failed.",
+                    commit=False,
+                )
+                raise TelegramServiceError(
+                    status_code=502,
+                    message="Telegram test notification could not be delivered right now.",
+                ) from exc
+
+            await self.notification_repository.mark_delivered(notification, commit=False)
         return TelegramTestNotificationResponse(
             success=True,
             message="Test notification sent to your linked Telegram chat.",
@@ -225,26 +249,34 @@ class TelegramBotFlow(TelegramBotFlowService):
                     requires_confirmation=True,
                 )
 
-            await self.repository.deactivate_connection(current_connection)
+        async with _transaction_context(self.repository):
+            if (
+                current_connection is not None
+                and current_connection.user_id != token_record.user_id
+            ):
+                await self.repository.deactivate_connection(current_connection, commit=False)
 
-        user_connection = await self.repository.get_active_connection_for_user(token_record.user_id)
-        if user_connection is not None and user_connection.telegram_user_id == telegram_user_id:
-            await self.repository.mark_token_used(token_record)
-            return TelegramBotResult(
-                outcome="already_linked",
-                message="This Telegram account is already linked to your MarketPulse account.",
+            user_connection = await self.repository.get_active_connection_for_user(
+                token_record.user_id
             )
+            if user_connection is not None and user_connection.telegram_user_id == telegram_user_id:
+                await self.repository.mark_token_used(token_record, commit=False)
+                return TelegramBotResult(
+                    outcome="already_linked",
+                    message="This Telegram account is already linked to your MarketPulse account.",
+                )
 
-        if user_connection is not None:
-            await self.repository.deactivate_connection(user_connection)
+            if user_connection is not None:
+                await self.repository.deactivate_connection(user_connection, commit=False)
 
-        await self.repository.create_connection(
-            user_id=token_record.user_id,
-            telegram_user_id=telegram_user_id,
-            telegram_chat_id=telegram_chat_id,
-            telegram_username=telegram_username,
-        )
-        await self.repository.mark_token_used(token_record)
+            await self.repository.create_connection(
+                user_id=token_record.user_id,
+                telegram_user_id=telegram_user_id,
+                telegram_chat_id=telegram_chat_id,
+                telegram_username=telegram_username,
+                commit=False,
+            )
+            await self.repository.mark_token_used(token_record, commit=False)
         return TelegramBotResult(
             outcome="switched" if confirmed_switch else "linked",
             message="Telegram is now linked to your MarketPulse account.",
@@ -287,7 +319,7 @@ class TelegramNotificationDispatcher:
         title: str,
         body: str,
     ) -> asyncio.Task[NotificationResponse | None]:
-        return asyncio.create_task(
+        task = asyncio.create_task(
             self.dispatch_alert_notification(
                 alert_id=alert_id,
                 user_id=user_id,
@@ -295,6 +327,8 @@ class TelegramNotificationDispatcher:
                 body=body,
             )
         )
+        task.add_done_callback(self._handle_background_task_result)
+        return task
 
     async def dispatch_alert_notification(
         self,
@@ -330,6 +364,15 @@ class TelegramNotificationDispatcher:
 
         updated = await self.notification_repository.mark_delivered(notification)
         return NotificationResponse.model_validate(updated)
+
+    def _handle_background_task_result(
+        self,
+        task: asyncio.Task[NotificationResponse | None],
+    ) -> None:
+        try:
+            task.result()
+        except Exception:
+            logger.exception("Telegram background notification dispatch failed unexpectedly.")
 
 
 @asynccontextmanager

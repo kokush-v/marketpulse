@@ -74,6 +74,7 @@ class TelegramRepository:
         user_id: uuid.UUID,
         token_hash: str,
         expires_at: datetime,
+        commit: bool = True,
     ) -> TelegramConnectionToken:
         stmt = (
             insert(TelegramConnectionToken)
@@ -85,10 +86,11 @@ class TelegramRepository:
             .returning(TelegramConnectionToken)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
-    async def revoke_tokens_for_user(self, user_id: uuid.UUID) -> None:
+    async def revoke_tokens_for_user(self, user_id: uuid.UUID, *, commit: bool = True) -> None:
         now = datetime.now(tz=UTC)
         stmt = (
             update(TelegramConnectionToken)
@@ -100,9 +102,15 @@ class TelegramRepository:
             .values(revoked_at=now)
         )
         await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
 
-    async def mark_token_used(self, token: TelegramConnectionToken) -> TelegramConnectionToken:
+    async def mark_token_used(
+        self,
+        token: TelegramConnectionToken,
+        *,
+        commit: bool = True,
+    ) -> TelegramConnectionToken:
         stmt = (
             update(TelegramConnectionToken)
             .where(TelegramConnectionToken.id == token.id)
@@ -110,7 +118,8 @@ class TelegramRepository:
             .returning(TelegramConnectionToken)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
     async def create_connection(
@@ -120,6 +129,7 @@ class TelegramRepository:
         telegram_user_id: int,
         telegram_chat_id: int,
         telegram_username: str | None,
+        commit: bool = True,
     ) -> TelegramConnection:
         stmt = (
             insert(TelegramConnection)
@@ -132,10 +142,16 @@ class TelegramRepository:
             .returning(TelegramConnection)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
-    async def deactivate_connection(self, connection: TelegramConnection) -> TelegramConnection:
+    async def deactivate_connection(
+        self,
+        connection: TelegramConnection,
+        *,
+        commit: bool = True,
+    ) -> TelegramConnection:
         now = datetime.now(tz=UTC)
         stmt = (
             update(TelegramConnection)
@@ -144,14 +160,20 @@ class TelegramRepository:
             .returning(TelegramConnection)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
-    async def deactivate_active_connection_for_user(self, user_id: uuid.UUID) -> None:
+    async def deactivate_active_connection_for_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        commit: bool = True,
+    ) -> None:
         connection = await self.get_active_connection_for_user(user_id)
         if connection is None:
             return
-        await self.deactivate_connection(connection)
+        await self.deactivate_connection(connection, commit=commit)
 
     async def deactivate_active_connection_for_telegram_user(self, telegram_user_id: int) -> None:
         connection = await self.get_active_connection_for_telegram_user(telegram_user_id)
@@ -186,7 +208,12 @@ class TelegramRepository:
         result = await self.session.execute(stmt)
         return {connection.user_id: connection for connection in result.scalars().all()}
 
-    async def revoke_token(self, token: TelegramConnectionToken) -> TelegramConnectionToken:
+    async def revoke_token(
+        self,
+        token: TelegramConnectionToken,
+        *,
+        commit: bool = True,
+    ) -> TelegramConnectionToken:
         stmt = (
             update(TelegramConnectionToken)
             .where(TelegramConnectionToken.id == token.id)
@@ -194,7 +221,8 @@ class TelegramRepository:
             .returning(TelegramConnectionToken)
         )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
     def token_is_currently_valid(self, token: TelegramConnectionToken, now: datetime) -> bool:

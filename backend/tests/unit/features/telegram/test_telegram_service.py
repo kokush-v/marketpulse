@@ -61,22 +61,26 @@ class FakeTelegramRepository:
     async def get_token_by_hash(self, token_hash):
         return self.tokens.get(token_hash)
 
-    async def mark_token_used(self, token):
+    async def mark_token_used(self, token, *, commit=True):
+        _ = commit
         token.used_at = datetime.now(tz=UTC)
         return token
 
-    async def revoke_token(self, token):
+    async def revoke_token(self, token, *, commit=True):
+        _ = commit
         token.revoked_at = datetime.now(tz=UTC)
         return token
 
-    async def deactivate_connection(self, connection):
+    async def deactivate_connection(self, connection, *, commit=True):
+        _ = commit
         connection.status = "disconnected"
         connection.disconnected_at = datetime.now(tz=UTC)
         self.active_user_connections.pop(connection.user_id, None)
         self.active_telegram_connections.pop(connection.telegram_user_id, None)
         return connection
 
-    async def deactivate_active_connection_for_user(self, user_id):
+    async def deactivate_active_connection_for_user(self, user_id, *, commit=True):
+        _ = commit
         connection = self.active_user_connections.get(user_id)
         if connection is not None:
             await self.deactivate_connection(connection)
@@ -88,7 +92,9 @@ class FakeTelegramRepository:
         telegram_user_id,
         telegram_chat_id,
         telegram_username,
+        commit=True,
     ):
+        _ = commit
         connection = TelegramConnection(
             id=uuid4(),
             user_id=user_id,
@@ -131,7 +137,9 @@ class FakeNotificationRepository:
         delivery_status,
         message_summary,
         related_alert_id,
+        commit=True,
     ):
+        _ = commit
         notification = NotificationRecord(
             id=uuid4(),
             user_id=user_id,
@@ -148,12 +156,14 @@ class FakeNotificationRepository:
         self.notifications.append(notification)
         return notification
 
-    async def mark_delivered(self, notification):
+    async def mark_delivered(self, notification, *, commit=True):
+        _ = commit
         notification.delivery_status = "delivered"
         notification.delivered_at = datetime.now(tz=UTC)
         return notification
 
-    async def mark_failed(self, notification, *, safe_error_message):
+    async def mark_failed(self, notification, *, safe_error_message, commit=True):
+        _ = commit
         notification.delivery_status = "failed"
         notification.safe_error_message = safe_error_message
         notification.failed_at = datetime.now(tz=UTC)

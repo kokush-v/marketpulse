@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.alerts.models import AlertRule
@@ -82,6 +82,7 @@ class AlertRepository:
                 recurring_start_date=recurring_start_date,
                 recurring_end_date=recurring_end_date,
                 scenario_payload=scenario_payload,
+                updated_at=func.now(),
             )
             .returning(AlertRule)
         )
@@ -93,7 +94,7 @@ class AlertRepository:
         stmt = (
             update(AlertRule)
             .where(AlertRule.id == alert.id)
-            .values(status=status)
+            .values(status=status, updated_at=func.now())
             .returning(AlertRule)
         )
         result = await self.session.execute(stmt)
