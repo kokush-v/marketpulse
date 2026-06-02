@@ -134,8 +134,11 @@ class AuthService:
             if admin_client is None:
                 admin_client = await get_supabase_admin_client()
                 self.supabase_admin_client = admin_client
-        except RuntimeError:
-            logger.info("Supabase admin client is not configured for auth profile enrichment.")
+        except Exception:
+            logger.info(
+                "Supabase admin client setup failed for auth profile enrichment.",
+                exc_info=True,
+            )
             return profile
 
         try:
@@ -148,7 +151,8 @@ class AuthService:
             )
             return profile
 
-        metadata = getattr(getattr(auth_user, "user", None), "user_metadata", None) or {}
+        raw_metadata = getattr(getattr(auth_user, "user", None), "user_metadata", None)
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
         display_name = (
             metadata.get("display_name") or metadata.get("full_name") or metadata.get("name")
         )
@@ -156,11 +160,14 @@ class AuthService:
         normalized_display_name = None
         if isinstance(display_name, str):
             normalized_display_name = display_name.strip() or None
+        normalized_avatar_url = None
+        if isinstance(avatar_url, str):
+            normalized_avatar_url = avatar_url.strip() or None
 
         return profile.model_copy(
             update={
                 "display_name": normalized_display_name,
-                "avatar_url": avatar_url if isinstance(avatar_url, str) else None,
+                "avatar_url": normalized_avatar_url,
             }
         )
 

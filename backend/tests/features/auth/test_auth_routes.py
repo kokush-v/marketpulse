@@ -197,6 +197,136 @@ def test_me_returns_local_user_when_supabase_profile_enrichment_fails() -> None:
     assert response.json()["avatar_url"] is None
 
 
+def test_me_returns_local_user_when_admin_client_setup_fails_unexpectedly() -> None:
+    async def fake_get_async_session():
+        yield object()
+
+    app.dependency_overrides[get_async_session] = fake_get_async_session
+
+    fake_user = User(
+        id=uuid4(),
+        supabase_user_id=uuid4(),
+        email="user@example.com",
+        created_at=datetime.now(tz=UTC),
+    )
+
+    from app.features.auth import dependencies as auth_dependencies
+    from app.features.auth import service as auth_service_module
+
+    original = auth_dependencies.AuthService.get_authenticated_user
+    original_decode = auth_dependencies._decode_access_token
+    original_admin_client_factory = auth_service_module.get_supabase_admin_client
+
+    async def fake_get_authenticated_user(self, supabase_user_id):
+        assert str(supabase_user_id)
+        return fake_user
+
+    def fake_decode_access_token(_token: str):
+        return {"sub": str(uuid4()), "email": "user@example.com", "exp": 4102444800}
+
+    async def fake_get_supabase_admin_client():
+        raise ValueError("invalid Supabase URL")
+
+    auth_dependencies.AuthService.get_authenticated_user = fake_get_authenticated_user
+    auth_dependencies._decode_access_token = fake_decode_access_token
+    auth_service_module.get_supabase_admin_client = fake_get_supabase_admin_client
+
+    token = _make_token(subject=str(uuid4()), email="user@example.com")
+    with TestClient(app) as client:
+        response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    auth_dependencies.AuthService.get_authenticated_user = original
+    auth_dependencies._decode_access_token = original_decode
+    auth_service_module.get_supabase_admin_client = original_admin_client_factory
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(fake_user.id)
+    assert response.json()["email"] == fake_user.email
+    assert response.json()["display_name"] is None
+    assert response.json()["avatar_url"] is None
+
+
+def test_me_handles_non_mapping_metadata_and_blank_avatar_values() -> None:
+    async def fake_get_async_session():
+        yield object()
+
+    app.dependency_overrides[get_async_session] = fake_get_async_session
+
+    fake_user = User(
+        id=uuid4(),
+        supabase_user_id=uuid4(),
+        email="user@example.com",
+        created_at=datetime.now(tz=UTC),
+    )
+
+    from app.features.auth import dependencies as auth_dependencies
+    from app.features.auth import service as auth_service_module
+
+    original = auth_dependencies.AuthService.get_authenticated_user
+    original_decode = auth_dependencies._decode_access_token
+    original_admin_client_factory = auth_service_module.get_supabase_admin_client
+
+    async def fake_get_authenticated_user(self, supabase_user_id):
+        assert str(supabase_user_id)
+        return fake_user
+
+    def fake_decode_access_token(_token: str):
+        return {"sub": str(uuid4()), "email": "user@example.com", "exp": 4102444800}
+
+    class FakeAdminClientWithNonMappingMetadata:
+        class auth:
+            class admin:
+                @staticmethod
+                async def get_user_by_id(_user_id: str):
+                    return SimpleNamespace(user=SimpleNamespace(user_metadata="unexpected"))
+
+    class FakeAdminClientWithBlankAvatar:
+        class auth:
+            class admin:
+                @staticmethod
+                async def get_user_by_id(_user_id: str):
+                    return SimpleNamespace(
+                        user=SimpleNamespace(
+                            user_metadata={
+                                "display_name": "  Vitalii Lohoida  ",
+                                "avatar_url": "   ",
+                            }
+                        )
+                    )
+
+    async def fake_get_supabase_admin_client():
+        return FakeAdminClientWithNonMappingMetadata()
+
+    auth_dependencies.AuthService.get_authenticated_user = fake_get_authenticated_user
+    auth_dependencies._decode_access_token = fake_decode_access_token
+    auth_service_module.get_supabase_admin_client = fake_get_supabase_admin_client
+
+    token = _make_token(subject=str(uuid4()), email="user@example.com")
+    with TestClient(app) as client:
+        response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] is None
+    assert response.json()["avatar_url"] is None
+
+    async def fake_get_cached_admin_client():
+        return FakeAdminClientWithBlankAvatar()
+
+    auth_service_module.get_supabase_admin_client = fake_get_cached_admin_client
+    with TestClient(app) as client:
+        response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    auth_dependencies.AuthService.get_authenticated_user = original
+    auth_dependencies._decode_access_token = original_decode
+    auth_service_module.get_supabase_admin_client = original_admin_client_factory
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Vitalii Lohoida"
+    assert response.json()["avatar_url"] is None
+
+
 def test_ownership_comes_from_authenticated_context() -> None:
     async def fake_get_async_session():
         yield object()
