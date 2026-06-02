@@ -10,6 +10,11 @@ class AuthRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    async def get_user_by_id(self, user_id: uuid.UUID) -> User | None:
+        stmt = select(User).where(User.id == user_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_user_by_supabase_id(self, supabase_user_id: uuid.UUID) -> User | None:
         stmt = select(User).where(User.supabase_user_id == supabase_user_id)
         result = await self.session.execute(stmt)

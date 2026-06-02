@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     )
     supabase_url: str = "https://example.supabase.co"
     supabase_anon_key: str = "replace-me"
+    supabase_secret_key: str | None = None
     supabase_jwt_algorithm: str = "RS256"
     supabase_jwt_audience: str = "authenticated"
     frontend_url: str = "http://localhost:3000"

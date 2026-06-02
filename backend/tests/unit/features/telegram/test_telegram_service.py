@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -39,7 +40,8 @@ class FakeTelegramRepository:
     async def get_active_connection_for_telegram_user(self, telegram_user_id):
         return self.active_telegram_connections.get(telegram_user_id)
 
-    async def revoke_tokens_for_user(self, user_id):
+    async def revoke_tokens_for_user(self, user_id, *, commit=True):
+        _ = commit
         self.revoked_user_ids.append(user_id)
         for token in self.tokens.values():
             if token.user_id == user_id and token.used_at is None:
@@ -101,6 +103,7 @@ class FakeTelegramRepository:
             telegram_user_id=telegram_user_id,
             telegram_chat_id=telegram_chat_id,
             telegram_username=telegram_username,
+            last_test_message_id=None,
             status="active",
             connected_at=datetime.now(tz=UTC),
             disconnected_at=None,
@@ -110,6 +113,22 @@ class FakeTelegramRepository:
         self.active_user_connections[user_id] = connection
         self.active_telegram_connections[telegram_user_id] = connection
         return connection
+
+    async def get_active_connection_for_telegram_user_for_update(self, telegram_user_id):
+        return self.active_telegram_connections.get(telegram_user_id)
+
+    async def update_last_test_message_id(self, connection, *, last_test_message_id, commit=True):
+        _ = commit
+        connection.last_test_message_id = last_test_message_id
+        return connection
+
+
+class FakeAuthRepository:
+    def __init__(self) -> None:
+        self.users: dict = {}
+
+    async def get_user_by_id(self, user_id):
+        return self.users.get(user_id)
 
 
 class FakeNotificationRepository:
@@ -171,14 +190,50 @@ class FakeNotificationRepository:
 
 
 class FakeBotApp:
-    def __init__(self, should_fail: bool = False) -> None:
+    def __init__(self, should_fail: bool = False, delete_should_fail: bool = False) -> None:
         self.should_fail = should_fail
+        self.delete_should_fail = delete_should_fail
         self.messages: list[tuple[int, str]] = []
+        self.deleted_messages: list[tuple[int, int]] = []
+        self.next_message_id = 100
 
-    async def send_message(self, *, chat_id: int, text: str) -> None:
+    async def send_message(self, *, chat_id: int, text: str) -> int:
         if self.should_fail:
             raise RuntimeError("telegram failed")
         self.messages.append((chat_id, text))
+        self.next_message_id += 1
+        return self.next_message_id
+
+    async def delete_message(self, *, chat_id: int, message_id: int) -> None:
+        if self.delete_should_fail:
+            raise RuntimeError("delete failed")
+        self.deleted_messages.append((chat_id, message_id))
+
+
+class FakeSupabaseAdminClient:
+    def __init__(
+        self,
+        *,
+        display_name: str = "MarketPulse User",
+        avatar_url: str | None = None,
+        user_exists: bool = True,
+    ):
+        self._display_name = display_name
+        self._avatar_url = avatar_url
+        self._user_exists = user_exists
+        self.auth = SimpleNamespace(admin=self)
+
+    async def get_user_by_id(self, _uid: str):
+        if not self._user_exists:
+            return SimpleNamespace(user=None)
+        return SimpleNamespace(
+            user=SimpleNamespace(
+                user_metadata={
+                    "full_name": self._display_name,
+                    "avatar_url": self._avatar_url,
+                }
+            )
+        )
 
 
 @pytest.mark.asyncio
@@ -240,7 +295,11 @@ async def test_bot_flow_requires_confirmation_for_cross_account() -> None:
     )
     repository.tokens = {"hashed-token": token}
 
-    flow = TelegramBotFlow(repository)
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
@@ -277,7 +336,11 @@ async def test_bot_flow_switches_account_after_confirmation() -> None:
     )
     repository.tokens = {"hashed-token": token}
 
-    flow = TelegramBotFlow(repository)
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
 
     with pytest.MonkeyPatch.context() as monkeypatch:
         monkeypatch.setattr(
@@ -377,6 +440,67 @@ async def test_send_test_notification_delivers_message() -> None:
     ]
     assert notifications.notifications[-1].delivery_status == "delivered"
     assert notifications.notifications[-1].message_summary == "Telegram test notification"
+    assert repository.active_user_connections[user.id].last_test_message_id == 101
+
+
+@pytest.mark.asyncio
+async def test_send_test_notification_replaces_previous_message_when_possible() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    notifications = FakeNotificationRepository()
+    bot_app = FakeBotApp()
+    connection = await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    connection.last_test_message_id = 77
+    service = TelegramService(
+        repository=repository,
+        notification_repository=notifications,
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "app.features.telegram.service.get_telegram_bot_app",
+            lambda: bot_app,
+        )
+        response = await service.send_test_notification(user)
+
+    assert response.success is True
+    assert bot_app.deleted_messages == [(654, 77)]
+    assert repository.active_user_connections[user.id].last_test_message_id == 101
+
+
+@pytest.mark.asyncio
+async def test_send_test_notification_still_sends_when_cleanup_fails() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    notifications = FakeNotificationRepository()
+    bot_app = FakeBotApp(delete_should_fail=True)
+    connection = await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    connection.last_test_message_id = 77
+    service = TelegramService(
+        repository=repository,
+        notification_repository=notifications,
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(
+            "app.features.telegram.service.get_telegram_bot_app",
+            lambda: bot_app,
+        )
+        response = await service.send_test_notification(user)
+
+    assert response.success is True
+    assert bot_app.messages
+    assert repository.active_user_connections[user.id].last_test_message_id == 101
 
 
 @pytest.mark.asyncio
@@ -461,3 +585,191 @@ async def test_send_test_notification_records_safe_failure() -> None:
     assert notifications.notifications[-1].safe_error_message == (
         "Telegram test notification failed."
     )
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_returns_linked_profile() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    auth_repository = FakeAuthRepository()
+    auth_repository.users[user.id] = user
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        auth_repository,
+        FakeSupabaseAdminClient(
+            display_name="Vitalii Lohoida",
+            avatar_url="https://example.com/avatar.png",
+        ),
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "profile_shown"
+    assert profile is not None
+    assert profile.display_name == "Vitalii Lohoida"
+    assert profile.email == user.email
+    assert profile.avatar_url == "https://example.com/avatar.png"
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_returns_safe_profile_outcome_when_not_linked() -> None:
+    flow = TelegramBotFlow(
+        FakeTelegramRepository(),
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "not_linked"
+    assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_returns_safe_profile_outcome_when_supabase_user_missing() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    auth_repository = FakeAuthRepository()
+    auth_repository.users[user.id] = user
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        auth_repository,
+        FakeSupabaseAdminClient(user_exists=False),
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "profile_unavailable"
+    assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_returns_safe_profile_outcome_when_admin_client_unavailable() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    auth_repository = FakeAuthRepository()
+    auth_repository.users[user.id] = user
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+
+    async def _raise_runtime_error():
+        raise RuntimeError("SUPABASE_SECRET_KEY is not configured.")
+
+    flow = TelegramBotFlow(
+        repository,
+        auth_repository,
+        supabase_admin_client_factory=_raise_runtime_error,
+    )
+
+    result, profile = await flow.get_profile(telegram_user_id=321)
+
+    assert result.outcome == "profile_unavailable"
+    assert profile is None
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_unlink_requires_confirmation() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
+
+    result = await flow.request_unlink(telegram_user_id=321)
+
+    assert result.outcome == "unlink_confirmation_required"
+    assert result.requires_confirmation is True
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_unlink_does_not_require_supabase_admin_client() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+
+    async def _unexpected_admin_client_call():
+        raise AssertionError("Supabase admin client should not be requested.")
+
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        supabase_admin_client_factory=_unexpected_admin_client_call,
+    )
+
+    result = await flow.request_unlink(telegram_user_id=321)
+
+    assert result.outcome == "unlink_confirmation_required"
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_confirm_unlink_deactivates_connection() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
+
+    result = await flow.confirm_unlink(telegram_user_id=321)
+
+    assert result.outcome == "unlinked"
+    assert user.id not in repository.active_user_connections
+    assert 321 not in repository.active_telegram_connections
+
+
+@pytest.mark.asyncio
+async def test_bot_flow_cancel_unlink_preserves_connection() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    flow = TelegramBotFlow(
+        repository,
+        FakeAuthRepository(),
+        FakeSupabaseAdminClient(),
+    )
+
+    result = await flow.cancel_unlink(telegram_user_id=321)
+
+    assert result.outcome == "unlink_cancelled"
+    assert repository.active_telegram_connections[321].user_id == user.id

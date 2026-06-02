@@ -1,7 +1,7 @@
 """add users table for auth
 
-Revision ID: 0002_add_users_table_for_auth
-Revises: 0001_foundation_baseline
+Revision ID: 84c3e1b7d5f2
+Revises: 6a1f5d2c9e10
 Create Date: 2026-05-14 00:00:00.000000
 """
 
@@ -10,8 +10,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "0002_add_users_table_for_auth"
-down_revision = "0001_foundation_baseline"
+revision = "84c3e1b7d5f2"
+down_revision = "6a1f5d2c9e10"
 branch_labels = None
 depends_on = None
 

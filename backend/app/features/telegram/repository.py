@@ -45,6 +45,20 @@ class TelegramRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_active_connection_for_telegram_user_for_update(
+        self, telegram_user_id: int
+    ) -> TelegramConnection | None:
+        stmt = (
+            select(TelegramConnection)
+            .where(
+                TelegramConnection.telegram_user_id == telegram_user_id,
+                TelegramConnection.status == "active",
+            )
+            .with_for_update()
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_latest_valid_token_for_user(
         self, user_id: uuid.UUID, now: datetime
     ) -> TelegramConnectionToken | None:
@@ -138,6 +152,7 @@ class TelegramRepository:
                 telegram_user_id=telegram_user_id,
                 telegram_chat_id=telegram_chat_id,
                 telegram_username=telegram_username,
+                last_test_message_id=None,
             )
             .returning(TelegramConnection)
         )
@@ -180,6 +195,24 @@ class TelegramRepository:
         if connection is None:
             return
         await self.deactivate_connection(connection)
+
+    async def update_last_test_message_id(
+        self,
+        connection: TelegramConnection,
+        *,
+        last_test_message_id: int | None,
+        commit: bool = True,
+    ) -> TelegramConnection:
+        stmt = (
+            update(TelegramConnection)
+            .where(TelegramConnection.id == connection.id)
+            .values(last_test_message_id=last_test_message_id)
+            .returning(TelegramConnection)
+        )
+        result = await self.session.execute(stmt)
+        if commit:
+            await self.session.commit()
+        return result.scalar_one()
 
     async def has_active_connection_conflict(
         self,

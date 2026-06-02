@@ -12,6 +12,12 @@ TelegramBotOutcome = Literal[
     "switch_required",
     "switched",
     "switch_cancelled",
+    "profile_shown",
+    "not_linked",
+    "unlink_confirmation_required",
+    "unlinked",
+    "unlink_cancelled",
+    "profile_unavailable",
     "invalid",
     "expired",
 ]
@@ -50,3 +56,9 @@ class TelegramBotResult(BaseModel):
     outcome: TelegramBotOutcome
     message: str
     requires_confirmation: bool = False
+
+
+class TelegramBotProfile(BaseModel):
+    avatar_url: str | None = None
+    email: str
+    display_name: str

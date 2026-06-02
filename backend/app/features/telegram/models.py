@@ -35,6 +35,7 @@ class TelegramConnection(Base):
     telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     telegram_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     telegram_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_test_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,

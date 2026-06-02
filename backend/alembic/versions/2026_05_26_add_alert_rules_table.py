@@ -1,7 +1,7 @@
 """add alert rules table
 
-Revision ID: 0004_add_alert_rules_table
-Revises: 0003_add_watchlist_assets_table
+Revision ID: c2f7a4d8e931
+Revises: b91d4e6a2c73
 Create Date: 2026-05-26 00:00:00.000000
 """
 
@@ -10,8 +10,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "0004_add_alert_rules_table"
-down_revision = "0003_add_watchlist_assets_table"
+revision = "c2f7a4d8e931"
+down_revision = "b91d4e6a2c73"
 branch_labels = None
 depends_on = None
 
