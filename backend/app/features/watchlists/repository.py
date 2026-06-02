@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,21 +40,24 @@ class WatchlistRepository:
         name: str,
         image_url: str | None,
     ) -> WatchlistAsset:
-        asset = WatchlistAsset(
-            user_id=user_id,
-            asset_id=asset_id,
-            symbol=symbol,
-            name=name,
-            image_url=image_url,
+        stmt = (
+            insert(WatchlistAsset)
+            .values(
+                user_id=user_id,
+                asset_id=asset_id,
+                symbol=symbol,
+                name=name,
+                image_url=image_url,
+            )
+            .returning(WatchlistAsset)
         )
-        self.session.add(asset)
         try:
+            result = await self.session.execute(stmt)
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
             raise WatchlistAssetAlreadySavedError from exc
-        await self.session.refresh(asset)
-        return asset
+        return result.scalar_one()
 
     async def delete_asset_for_user(self, user_id: uuid.UUID, asset_id: str) -> bool:
         stmt = delete(WatchlistAsset).where(

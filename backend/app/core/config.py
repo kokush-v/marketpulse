@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:3000"
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     market_data_api_base_url: str = "http://localhost:3001"
+    telegram_bot_token: str = "replace-me"
+    telegram_bot_username: str = "marketpulse_bot"
+    telegram_link_token_ttl_seconds: int = 900
+    telegram_test_notification_cooldown_seconds: int = 10
+    telegram_webhook_secret: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

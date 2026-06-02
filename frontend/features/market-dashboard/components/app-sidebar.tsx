@@ -7,6 +7,7 @@ import {
 	Activity,
 	BadgeCheck,
 	BellRing,
+	Bot,
 	ChevronsUpDown,
 	LayoutGrid,
 	LineChart,
@@ -57,6 +58,7 @@ const navGroups = [
 			items: [
 				{ title: "Watchlist", icon: Star, href: "/watchlist" },
 				{ title: "Alerts", icon: BellRing, href: "/alerts" },
+				{ title: "Integrations", icon: Bot, href: "/integrations" },
 				{ title: "Portfolio", icon: WalletCards, href: "/dashboard/portfolio", active: false, soon: true },
 				{ title: "Settings", icon: Settings, href: "/dashboard/settings", active: false, soon: true },
 			],
