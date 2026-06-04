@@ -1,0 +1,5 @@
+- [x] Validate the OpenSpec change with `openspec validate fix-telegram-test-notification-persistence --strict`.
+- [x] Update the Telegram test notification backend flow so successful sends persist the latest tracked test message id and latest test notification state before returning success.
+- [x] Add or update backend tests to cover persisted test message tracking and cooldown state after a successful send.
+- [x] Run relevant backend tests for the Telegram feature.
+- [x] Re-run `openspec validate fix-telegram-test-notification-persistence --strict`.

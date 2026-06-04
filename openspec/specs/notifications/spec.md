@@ -49,6 +49,12 @@ The system SHALL attempt to keep Telegram test notifications tidy by deleting th
 - **Then** the system still sends the new Telegram test notification
 - **And** the deletion failure does not block the test-notification flow
 
+#### Scenario: Successful test send updates future cleanup state
+- **Given** a linked user requests a Telegram test notification
+- **When** the system sends the new Telegram test notification successfully
+- **Then** the system persists the new Telegram message identifier for that linked user
+- **And** the next Telegram test notification request can use that persisted identifier for chat cleanup
+
 ### Requirement: Preserve Notification History During Telegram Test Message Replacement
 The system SHALL preserve stored notification-history records when replacing Telegram test messages in chat.
 
@@ -61,6 +67,12 @@ The system SHALL preserve stored notification-history records when replacing Tel
 - **Given** a linked user requests a new Telegram test notification
 - **When** deletion of the previous Telegram test-notification message fails but the new test notification is still sent
 - **Then** the system does not require deletion of prior notification-history records from the database
+
+#### Scenario: Successful test send remains visible for cooldown enforcement
+- **Given** a linked user requests a Telegram test notification
+- **When** the system sends the new Telegram test notification successfully
+- **Then** the resulting test notification attempt remains stored for that user
+- **And** a follow-up request inside the cooldown window is rejected according to the per-user cooldown rules
 
 ### Requirement: Record Notification History For Scheduled Alert Triggers
 The system SHALL create notification-history records when scheduled alert evaluation determines that a user's alert has triggered, including during catch-up processing of missed evaluation windows.
@@ -89,3 +101,4 @@ The system SHALL preserve observable notification-delivery outcomes for schedule
 - **And** catch-up processing reaches a missed evaluation window where one of the user's alerts triggered
 - **When** Telegram delivery fails
 - **Then** the resulting failure outcome remains visible through the system's notification records or delivery status
+

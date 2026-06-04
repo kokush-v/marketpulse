@@ -1,0 +1,5 @@
+- [x] Validate the OpenSpec change with `openspec validate fix-telegram-link-persistence --strict`.
+- [x] Update the Telegram bot linking backend flow so a successful `/start` link persists the active connection before returning success.
+- [x] Add or update backend tests to cover successful link persistence across a follow-up profile lookup.
+- [x] Run relevant backend tests for the Telegram feature.
+- [x] Re-run `openspec validate fix-telegram-link-persistence --strict`.
