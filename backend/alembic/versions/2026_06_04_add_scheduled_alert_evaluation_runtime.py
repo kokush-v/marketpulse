@@ -1,7 +1,7 @@
 """add scheduled alert evaluation runtime state
 
 Revision ID: 6b91c3cb63c1
-Revises: e5b7d2a9c418
+Revises: f1c8e4b6a293
 Create Date: 2026-06-04 00:00:00.000000
 """
 
@@ -20,12 +20,6 @@ def upgrade() -> None:
     op.add_column(
         "notifications",
         sa.Column("event_timestamp", sa.DateTime(timezone=True), nullable=True),
-    )
-    op.create_index(
-        op.f("ix_notifications_event_key"),
-        "notifications",
-        ["event_key"],
-        unique=False,
     )
     op.create_unique_constraint(
         "uq_notifications_event_key",
@@ -82,6 +76,5 @@ def downgrade() -> None:
         "delivery_status IN ('pending', 'delivered', 'failed')",
     )
     op.drop_constraint("uq_notifications_event_key", "notifications", type_="unique")
-    op.drop_index(op.f("ix_notifications_event_key"), table_name="notifications")
     op.drop_column("notifications", "event_timestamp")
     op.drop_column("notifications", "event_key")

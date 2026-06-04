@@ -24,7 +24,7 @@ class NotificationRecord(Base):
     channel: Mapped[str] = mapped_column(String(32), nullable=False)
     delivery_status: Mapped[str] = mapped_column(String(32), nullable=False)
     message_summary: Mapped[str] = mapped_column(String(500), nullable=False)
-    event_key: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    event_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
     event_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     safe_error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
