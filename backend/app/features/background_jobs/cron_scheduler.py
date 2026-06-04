@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 logger = logging.getLogger("marketpulse.cron")
 
@@ -36,6 +36,8 @@ class CronField:
             step = int(step_value)
             if step <= 0:
                 raise ValueError("Cron step must be positive")
+            if base != "*" and "-" not in base:
+                raise ValueError("Cron step syntax requires '*' or a numeric range base")
         else:
             base = part
             step = 1
@@ -113,20 +115,33 @@ class CronCommandRunner:
         try:
             process = await asyncio.create_subprocess_exec(*job.command)
         except Exception:
-            logger.exception("Cron job '%s' failed to start at %s", job.name, trigger_iso)
+            failure_iso = datetime.now(tz=UTC).isoformat()
+            logger.exception(
+                "Cron job '%s' failed to start at %s for trigger %s",
+                job.name,
+                failure_iso,
+                trigger_iso,
+            )
             return 1
         return_code = await process.wait()
+        completed_iso = datetime.now(tz=UTC).isoformat()
 
         if return_code != 0:
             logger.error(
-                "Cron job '%s' failed at %s with exit code %s",
+                "Cron job '%s' failed at %s for trigger %s with exit code %s",
                 job.name,
+                completed_iso,
                 trigger_iso,
                 return_code,
             )
             return return_code
 
-        logger.info("Cron job '%s' completed successfully at %s", job.name, trigger_iso)
+        logger.info(
+            "Cron job '%s' completed successfully at %s for trigger %s",
+            job.name,
+            completed_iso,
+            trigger_iso,
+        )
         return return_code
 
 
@@ -150,12 +165,9 @@ class CronScheduler:
 
         while True:
             current_minute = self._truncate_to_minute(self.clock())
-            if last_processed_minute is None:
-                last_processed_minute = current_minute - timedelta(minutes=1)
-
-            while last_processed_minute < current_minute:
-                last_processed_minute += timedelta(minutes=1)
-                await self._run_matching_jobs(last_processed_minute)
+            if last_processed_minute != current_minute:
+                await self._run_matching_jobs(current_minute)
+                last_processed_minute = current_minute
 
             await asyncio.sleep(self.poll_interval_seconds)
 
