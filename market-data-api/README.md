@@ -70,10 +70,13 @@ docker compose up -d postgres redis
 cd market-data-api
 gem install bundler
 bundle install
-bundle exec rails server -p 3001
+bundle exec rails server -b 0.0.0.0 -p 3001
 ```
 
 For a local Redis-backed cache, point `REDIS_URL` to `redis://localhost:6379/0`.
+
+If another container needs to reach the service from Docker Desktop, use
+`http://host.docker.internal:3001` from the container side.
 
 ## Tests
 

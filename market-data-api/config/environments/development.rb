@@ -7,4 +7,5 @@ Rails.application.configure do
   config.action_controller.perform_caching = false
   config.active_support.deprecation = :log
   config.cache_store = :memory_store
+  config.hosts << "host.docker.internal"
 end
