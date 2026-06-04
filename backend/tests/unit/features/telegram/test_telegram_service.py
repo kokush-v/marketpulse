@@ -156,6 +156,8 @@ class FakeNotificationRepository:
         delivery_status,
         message_summary,
         related_alert_id,
+        event_key=None,
+        event_timestamp=None,
         commit=True,
     ):
         _ = commit
@@ -167,6 +169,8 @@ class FakeNotificationRepository:
             channel=channel,
             delivery_status=delivery_status,
             message_summary=message_summary,
+            event_key=event_key,
+            event_timestamp=event_timestamp,
             safe_error_message=None,
             delivered_at=None,
             failed_at=None,
@@ -174,6 +178,42 @@ class FakeNotificationRepository:
         )
         self.notifications.append(notification)
         return notification
+
+    async def get_notification_by_event_key(self, event_key):
+        for notification in self.notifications:
+            if notification.event_key == event_key:
+                return notification
+        return None
+
+    async def create_or_get_notification(
+        self,
+        *,
+        user_id,
+        notification_type,
+        channel,
+        delivery_status,
+        message_summary,
+        related_alert_id,
+        event_key,
+        event_timestamp,
+        commit=True,
+    ):
+        _ = commit
+        existing = await self.get_notification_by_event_key(event_key)
+        if existing is not None:
+            return existing, False
+        created = await self.create_notification(
+            user_id=user_id,
+            notification_type=notification_type,
+            channel=channel,
+            delivery_status=delivery_status,
+            message_summary=message_summary,
+            related_alert_id=related_alert_id,
+            event_key=event_key,
+            event_timestamp=event_timestamp,
+            commit=commit,
+        )
+        return created, True
 
     async def mark_delivered(self, notification, *, commit=True):
         _ = commit
@@ -386,6 +426,65 @@ async def test_notification_dispatch_records_failure_safely() -> None:
     assert response is not None
     assert response.delivery_status == "failed"
     assert response.safe_error_message == "Telegram delivery failed."
+
+
+@pytest.mark.asyncio
+async def test_scheduled_notification_dispatch_records_internal_history_without_telegram_link() -> (
+    None
+):
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    notifications = FakeNotificationRepository()
+    dispatcher = TelegramNotificationDispatcher(repository, notifications, FakeBotApp())
+
+    response = await dispatcher.dispatch_scheduled_alert_notification(
+        alert_id=uuid4(),
+        user_id=user.id,
+        title="BTC alert triggered",
+        body="Bitcoin moved above your threshold.",
+        event_key="alert:test:one-time",
+        event_timestamp=datetime.now(tz=UTC),
+    )
+
+    assert response.channel == "internal"
+    assert response.delivery_status == "recorded"
+    assert notifications.notifications[-1].channel == "internal"
+
+
+@pytest.mark.asyncio
+async def test_scheduled_notification_dispatch_is_idempotent_for_duplicate_event_keys() -> None:
+    user = _make_user()
+    repository = FakeTelegramRepository()
+    notifications = FakeNotificationRepository()
+    bot_app = FakeBotApp()
+    await repository.create_connection(
+        user_id=user.id,
+        telegram_user_id=321,
+        telegram_chat_id=654,
+        telegram_username="user_name",
+    )
+    dispatcher = TelegramNotificationDispatcher(repository, notifications, bot_app)
+
+    first = await dispatcher.dispatch_scheduled_alert_notification(
+        alert_id=uuid4(),
+        user_id=user.id,
+        title="BTC alert triggered",
+        body="Bitcoin moved above your threshold.",
+        event_key="alert:test:daily:2026-06-04",
+        event_timestamp=datetime.now(tz=UTC),
+    )
+    second = await dispatcher.dispatch_scheduled_alert_notification(
+        alert_id=uuid4(),
+        user_id=user.id,
+        title="BTC alert triggered",
+        body="Bitcoin moved above your threshold.",
+        event_key="alert:test:daily:2026-06-04",
+        event_timestamp=datetime.now(tz=UTC),
+    )
+
+    assert first.id == second.id
+    assert len(bot_app.messages) == 1
+    assert len(notifications.notifications) == 1
 
 
 @pytest.mark.asyncio

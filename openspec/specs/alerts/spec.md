@@ -209,7 +209,7 @@ The system SHALL render the configured trigger value directly on the chart while
 - **Then** the system displays that trigger on the chart in the active time scope
 
 ### Requirement: Support Alert Time Behavior Modes
-The system SHALL allow the user to configure time behavior for all alert types and SHALL allow eligible alert triggers to produce Telegram notifications when the user has an active Telegram connection.
+The system SHALL allow the user to configure time behavior for all alert types, SHALL evaluate all supported alert types through scheduled background processing every five minutes, and SHALL allow eligible alert triggers to produce Telegram notifications when the user has an active Telegram connection.
 
 #### Scenario: User creates a one-time alert
 - **Given** an authenticated user is creating any supported alert type
@@ -222,20 +222,25 @@ The system SHALL allow the user to configure time behavior for all alert types a
 - **Then** the system requires a start date and an end date for that alert
 - **And** the system stores that alert as a recurring alert with those date boundaries
 
+#### Scenario: Supported alert types are evaluated on schedule
+- **Given** an authenticated user has active alerts of type `Price above`, `Price below`, and `News`
+- **When** a scheduled five-minute evaluation window runs
+- **Then** the system evaluates each eligible alert type according to its configured rule semantics
+
 #### Scenario: Connected user receives Telegram alert delivery
 - **Given** an authenticated user has an active Telegram link
-- **And** one of the user's alerts becomes eligible to trigger
+- **And** one of the user's alerts becomes eligible to trigger during scheduled evaluation
 - **When** the system processes that alert trigger
 - **Then** the system may deliver the resulting alert notification to the user's linked Telegram account
 
 #### Scenario: User without Telegram link triggers an alert
 - **Given** an authenticated user does not have an active Telegram link
-- **And** one of the user's alerts becomes eligible to trigger
+- **And** one of the user's alerts becomes eligible to trigger during scheduled evaluation
 - **When** the system processes that alert trigger
 - **Then** the system does not require Telegram delivery to treat the alert trigger as valid
 
 ### Requirement: Limit Recurring Alerts To One Trigger Per Day
-The system SHALL model recurring alerts so they may trigger at most once per calendar day during their configured active date window.
+The system SHALL model recurring alerts so they may trigger at most once per calendar day during their configured active date window, including during catch-up processing of missed evaluation windows.
 
 #### Scenario: Recurring alert already triggered today
 - **Given** an authenticated user has a daily recurring alert
@@ -248,6 +253,12 @@ The system SHALL model recurring alerts so they may trigger at most once per cal
 - **And** that alert triggered on a previous day
 - **When** the next day begins and the alert is still inside its configured date range
 - **Then** the system treats that alert as eligible again for one trigger on that new day
+
+#### Scenario: Catch-up processing spans multiple missed runs in the same day
+- **Given** an authenticated user has a daily recurring alert
+- **And** multiple five-minute evaluation windows were missed on the same calendar day
+- **When** catch-up processing evaluates those missed windows
+- **Then** the system does not trigger that recurring alert more than once for that day
 
 ### Requirement: Collect Recurring Alert Dates Through A Calendar UI
 The system SHALL collect recurring alert start and end dates through a calendar-based date selection interface.
@@ -274,4 +285,3 @@ The system SHALL return frontend-safe errors for invalid alert definitions, unav
 - **Given** an authenticated user
 - **When** the user submits an alert with an invalid threshold value
 - **Then** the system rejects the request with a validation error suitable for frontend display
-

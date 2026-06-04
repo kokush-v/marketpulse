@@ -6,8 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-NotificationChannel = Literal["telegram"]
-NotificationDeliveryStatus = Literal["pending", "delivered", "failed"]
+NotificationChannel = Literal["telegram", "internal"]
+NotificationDeliveryStatus = Literal["recorded", "pending", "delivered", "failed"]
 NotificationType = Literal["alert"]
 
 

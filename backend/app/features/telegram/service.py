@@ -549,6 +549,58 @@ class TelegramNotificationDispatcher:
         updated = await self.notification_repository.mark_delivered(notification)
         return NotificationResponse.model_validate(updated)
 
+    async def dispatch_scheduled_alert_notification(
+        self,
+        *,
+        alert_id: UUID,
+        user_id: UUID,
+        title: str,
+        body: str,
+        event_key: str,
+        event_timestamp: datetime,
+    ) -> NotificationResponse:
+        connection = await self.telegram_repository.get_active_connection_for_user(user_id)
+        if connection is None:
+            notification, _ = await self.notification_repository.create_or_get_notification(
+                user_id=user_id,
+                notification_type="alert",
+                channel="internal",
+                delivery_status="recorded",
+                message_summary=title,
+                related_alert_id=alert_id,
+                event_key=event_key,
+                event_timestamp=event_timestamp,
+            )
+            return NotificationResponse.model_validate(notification)
+
+        notification, created = await self.notification_repository.create_or_get_notification(
+            user_id=user_id,
+            notification_type="alert",
+            channel="telegram",
+            delivery_status="pending",
+            message_summary=title,
+            related_alert_id=alert_id,
+            event_key=event_key,
+            event_timestamp=event_timestamp,
+        )
+        if not created:
+            return NotificationResponse.model_validate(notification)
+
+        try:
+            await self.bot_app.send_message(
+                chat_id=connection.telegram_chat_id,
+                text=f"{title}\n\n{body}",
+            )
+        except Exception:
+            updated = await self.notification_repository.mark_failed(
+                notification,
+                safe_error_message="Telegram delivery failed.",
+            )
+            return NotificationResponse.model_validate(updated)
+
+        updated = await self.notification_repository.mark_delivered(notification)
+        return NotificationResponse.model_validate(updated)
+
     def _handle_background_task_result(
         self,
         task: asyncio.Task[NotificationResponse | None],

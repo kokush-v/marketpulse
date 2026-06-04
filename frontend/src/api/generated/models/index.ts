@@ -61,6 +61,7 @@ export * from './newsErrorResponse';
 export * from './newsSearchResponse';
 export * from './notificationListResponse';
 export * from './notificationResponse';
+export * from './notificationResponseChannel';
 export * from './notificationResponseDeliveredAt';
 export * from './notificationResponseDeliveryStatus';
 export * from './notificationResponseFailedAt';
