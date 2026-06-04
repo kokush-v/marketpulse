@@ -12,6 +12,14 @@ uv sync --dev
 uv run uvicorn app.main:app --reload
 ```
 
+Run the cron scheduler locally:
+
+```bash
+uv run python -m app.features.background_jobs.cron_runtime
+```
+
+Cron container files live in `docker/cron/`.
+
 ## Quality
 
 ```bash
