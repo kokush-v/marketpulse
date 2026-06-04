@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,32 @@ class AlertRepository:
         stmt = select(AlertRule).where(AlertRule.user_id == user_id, AlertRule.id == alert_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_eligible_alerts_for_window(self, window_date: date) -> list[AlertRule]:
+        stmt = (
+            select(AlertRule)
+            .where(
+                AlertRule.status == "active",
+                (
+                    (
+                        (AlertRule.time_behavior == "one_time")
+                        & AlertRule.last_triggered_on.is_(None)
+                    )
+                    | (
+                        (AlertRule.time_behavior == "daily_recurring")
+                        & (AlertRule.recurring_start_date <= window_date)
+                        & (AlertRule.recurring_end_date >= window_date)
+                        & (
+                            AlertRule.last_triggered_on.is_(None)
+                            | (AlertRule.last_triggered_on < window_date)
+                        )
+                    )
+                ),
+            )
+            .order_by(AlertRule.created_at.asc(), AlertRule.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def create_alert(
         self,
@@ -99,6 +126,29 @@ class AlertRepository:
         )
         result = await self.session.execute(stmt)
         await self.session.commit()
+        return result.scalar_one()
+
+    async def update_evaluation_state(
+        self,
+        alert: AlertRule,
+        *,
+        last_triggered_on: date,
+        scenario_payload: dict[str, object] | None = None,
+        commit: bool = True,
+    ) -> AlertRule:
+        values: dict[str, object] = {
+            "last_triggered_on": last_triggered_on,
+            "updated_at": func.now(),
+        }
+        if scenario_payload is not None:
+            values["scenario_payload"] = scenario_payload
+
+        stmt = (
+            update(AlertRule).where(AlertRule.id == alert.id).values(**values).returning(AlertRule)
+        )
+        result = await self.session.execute(stmt)
+        if commit:
+            await self.session.commit()
         return result.scalar_one()
 
     async def delete_alert_for_user(self, user_id: uuid.UUID, alert_id: uuid.UUID) -> bool:

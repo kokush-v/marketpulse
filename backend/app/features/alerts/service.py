@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Annotated, cast
 from uuid import UUID
 
@@ -154,7 +154,10 @@ class AlertService:
         threshold_value: float | None,
     ) -> dict[str, object]:
         if scenario == "coin_news":
-            return {"scenario": scenario}
+            return {
+                "scenario": scenario,
+                "baseline_published_at": datetime.now(tz=UTC).isoformat(),
+            }
 
         if trigger_mode is None or threshold_value is None:
             raise AlertServiceError(
