@@ -32,7 +32,7 @@ import { SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { cn } from "@/shared/lib/utils";
 
-export function IntegrationsWorkspace() {
+export function SettingsWorkspace() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = React.useState(false);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -169,7 +169,7 @@ export function IntegrationsWorkspace() {
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbPage className="text-sm font-semibold">Integrations</BreadcrumbPage>
+                  <BreadcrumbPage className="text-sm font-semibold">Settings</BreadcrumbPage>
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
@@ -183,7 +183,7 @@ export function IntegrationsWorkspace() {
                 className="h-9 w-9 p-0"
                 onClick={() => void refresh()}
                 disabled={integrationQuery.isFetching || notificationsQuery.isFetching}
-                aria-label="Refresh integrations"
+                aria-label="Refresh settings"
               >
                 <RefreshCw
                   className={cn(
@@ -207,10 +207,10 @@ export function IntegrationsWorkspace() {
                         <span className="flex size-10 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-600">
                           <Bot className="size-4" />
                         </span>
-                        Telegram connection
+                        Telegram integration
                       </CardTitle>
                       <CardDescription className="mt-2 max-w-2xl leading-6">
-                        Link one Telegram account to your current MarketPulse user, then let alert delivery flow through the bot.
+                        Manage the Telegram account linked to your current MarketPulse profile and verify delivery from one place.
                       </CardDescription>
                     </div>
                     <StateBadge state={effectiveState.state} />
@@ -238,7 +238,7 @@ export function IntegrationsWorkspace() {
                     </div>
                   ) : integrationQuery.isError ? (
                     <EmptyState
-                      title="Telegram integration is taking a moment"
+                      title="Telegram settings are taking a moment"
                       description={
                         integrationQuery.error instanceof Error
                           ? integrationQuery.error.message

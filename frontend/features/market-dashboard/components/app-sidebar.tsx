@@ -6,14 +6,9 @@ import {
 	Activity,
 	BadgeCheck,
 	BellRing,
-	Bot,
 	ChevronsUpDown,
-	LayoutGrid,
-	LineChart,
 	LogOut,
-	Settings,
 	Star,
-	WalletCards,
 } from "lucide-react";
 
 import {
@@ -28,8 +23,6 @@ import {
 	SidebarMenuItem,
 	SidebarRail,
 } from "@/shared/components/ui/sidebar";
-import { Badge } from "@/shared/components/ui/badge";
-import { Button } from "@/shared/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import {
 	DropdownMenu,
@@ -47,9 +40,7 @@ const navGroups = [
 		{
 			label: "General",
 			items: [
-				{ title: "Overview", icon: LayoutGrid, href: "/dashboard" },
-				{ title: "Market", icon: LineChart, href: "/dashboard/market", active: false, soon: true },
-				{ title: "Signals", icon: Activity, href: "/dashboard/signals", active: false, soon: true },
+				{ title: "Overview", icon: Activity, href: "/dashboard" },
 			],
 		},
 		{
@@ -57,9 +48,6 @@ const navGroups = [
 			items: [
 				{ title: "Watchlist", icon: Star, href: "/watchlist" },
 				{ title: "Alerts", icon: BellRing, href: "/alerts" },
-				{ title: "Integrations", icon: Bot, href: "/integrations" },
-				{ title: "Portfolio", icon: WalletCards, href: "/dashboard/portfolio", active: false, soon: true },
-				{ title: "Settings", icon: Settings, href: "/dashboard/settings", active: false, soon: true },
 			],
 		},
 	];
@@ -99,15 +87,10 @@ export function AppSidebar() {
 										<SidebarMenuButton
 											asChild
 											isActive={pathname === item.href}
-											tooltip={item.title}>
+										tooltip={item.title}>
 											<Link href={item.href} className="flex items-center gap-2">
 												<Icon />
 												<span>{item.title}</span>
-												{item.soon && (
-													<Badge variant="secondary" className="ml-auto text-[10px]">
-														Soon
-													</Badge>
-												)}
 											</Link>
 										</SidebarMenuButton>
 									</SidebarMenuItem>

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { startTransition, useDeferredValue } from "react";
+import { useRouter } from "next/navigation";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   BellPlus,
@@ -50,6 +51,7 @@ import { SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
 import { cn } from "@/shared/lib/utils";
 
 export function WatchlistWorkspace() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedAssetId, setSelectedAssetId] = React.useState<string | null>(null);
@@ -172,8 +174,9 @@ export function WatchlistWorkspace() {
     }
   };
 
-  const handleAddAlertPlaceholder = (assetName: string) => {
-    setPlaceholderMessage(`Add alert for ${assetName} is not available yet.`);
+  const handleAddAlert = (assetId: string) => {
+    setPlaceholderMessage(null);
+    router.push(`/alerts/new?assetId=${encodeURIComponent(assetId)}`);
   };
 
   return (
@@ -310,7 +313,7 @@ export function WatchlistWorkspace() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="flex flex-1 px-0 pb-0 pt-1">
+                <CardContent className="flex min-h-0 flex-1 px-0 pb-0 pt-1">
                   {watchlistQuery.isLoading ? (
                     <WatchlistListLoading />
                   ) : watchlistQuery.isError ? (
@@ -384,7 +387,7 @@ export function WatchlistWorkspace() {
                                   align="end"
                                   className="w-44 rounded-xl border-border/30 bg-background/95 p-1.5 shadow-2xl backdrop-blur-md"
                                 >
-                                  <DropdownMenuItem onClick={() => handleAddAlertPlaceholder(asset.name)}>
+                                  <DropdownMenuItem onClick={() => handleAddAlert(asset.asset_id)}>
                                     <BellPlus className="size-4" />
                                     Add alert
                                   </DropdownMenuItem>
