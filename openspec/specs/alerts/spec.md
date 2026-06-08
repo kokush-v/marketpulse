@@ -130,12 +130,19 @@ The system SHALL present saved alerts in the `Alerts` workspace as cards with re
 - **Then** the system shows an empty state that encourages creating the first alert
 
 ### Requirement: Start Alert Authoring With Coin Selection
-The system SHALL begin create and edit alert flows by asking the user to choose the coin that the alert will target from the authenticated user's watchlist.
+The system SHALL begin create and edit alert flows by asking the user to choose the coin that the alert will target from the authenticated user's watchlist, while allowing contextual entry points to preselect that coin without skipping the selection step.
 
-#### Scenario: User creates a new alert
-- **Given** an authenticated user opens the create-alert flow
+#### Scenario: User creates a new alert from the alerts workspace
+- **Given** an authenticated user opens the create-alert flow from the `Alerts` workspace
 - **When** the alert authoring flow begins
 - **Then** the system first asks the user to choose the coin for the alert from the user's watchlist
+- **And** the system does not automatically preselect a watchlist coin on that direct entry path
+
+#### Scenario: User creates a new alert from a watchlist asset
+- **Given** an authenticated user starts alert creation from a saved asset in the `Watchlist` workspace
+- **When** the alert authoring flow begins
+- **Then** the system opens on the coin-selection step
+- **And** the system preselects the saved asset that launched the flow
 
 #### Scenario: User edits an existing alert
 - **Given** an authenticated user has an existing alert
@@ -285,3 +292,4 @@ The system SHALL return frontend-safe errors for invalid alert definitions, unav
 - **Given** an authenticated user
 - **When** the user submits an alert with an invalid threshold value
 - **Then** the system rejects the request with a validation error suitable for frontend display
+

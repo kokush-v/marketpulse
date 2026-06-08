@@ -274,7 +274,13 @@ function getPreviewText(params: {
 	return `${scenario === "price_above" ? "Breaks above" : "Falls below"} ${formatCurrency(thresholdValue)}.`;
 }
 
-export function AlertsEditor({ alertId }: { alertId?: string }) {
+export function AlertsEditor({
+	alertId,
+	initialAssetId,
+}: {
+	alertId?: string;
+	initialAssetId?: string;
+}) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const isEditing = Boolean(alertId);
@@ -358,10 +364,17 @@ export function AlertsEditor({ alertId }: { alertId?: string }) {
 	}, [isEditing, targetAlert]);
 
 	React.useEffect(() => {
-		if (!selectedAssetId && watchlistAssets.length > 0 && !isEditing) {
-			setSelectedAssetId(watchlistAssets[0].asset_id);
+		if (isEditing || selectedAssetId || !initialAssetId || watchlistAssets.length === 0) {
+			return;
 		}
-	}, [isEditing, selectedAssetId, watchlistAssets]);
+
+		const contextualAsset = watchlistAssets.find((asset) => asset.asset_id === initialAssetId);
+		if (!contextualAsset) {
+			return;
+		}
+
+		setSelectedAssetId(contextualAsset.asset_id);
+	}, [initialAssetId, isEditing, selectedAssetId, watchlistAssets]);
 
 	const currentPrice = selectedAssetContextQuery.data?.summary.current_price ?? 0;
 	const thresholdValue = thresholdInput.trim() ? Number(thresholdInput) : null;
@@ -610,6 +623,14 @@ export function AlertsEditor({ alertId }: { alertId?: string }) {
 						</div>
 					</CardHeader>
 					<CardContent className="space-y-4">
+						{watchlistAssets.length > 0 && !selectedAssetId ? (
+							<div className="rounded-3xl border border-dashed border-sky-500/25 bg-sky-500/5 px-4 py-3.5">
+								<p className="text-sm font-medium text-foreground">Select one coin to unlock the next step</p>
+								<p className="mt-1 text-sm leading-6 text-muted-foreground">
+									The New alert flow starts in a neutral state, so nothing is chosen until you explicitly pick a saved coin.
+								</p>
+							</div>
+						) : null}
 						{watchlistAssets.length === 0 ? (
 							<div className="rounded-3xl border border-dashed border-border/50 bg-background/40 px-6 py-12 text-center">
 								<div className="mx-auto flex size-14 items-center justify-center rounded-full border border-border/50 bg-muted/30 text-muted-foreground">
