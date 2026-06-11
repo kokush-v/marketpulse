@@ -8,6 +8,7 @@ import pytest
 
 from app.features.alerts.models import AlertRule
 from app.features.background_jobs.service import (
+    LEGACY_ALERT_EVALUATION_CURSOR,
     NEWS_ALERT_EVALUATION_CURSOR,
     PRICE_ALERT_EVALUATION_CURSOR,
     NewsAlertEvaluator,
@@ -111,6 +112,12 @@ class FakeJobRepository:
         )
         self.cursors[name] = cursor
         return cursor
+
+    def set_cursor(self, name: str, last_processed_window_end: datetime | None) -> None:
+        self.cursors[name] = SimpleNamespace(
+            name=name,
+            last_processed_window_end=last_processed_window_end,
+        )
 
 
 class FakeMarketDataService:
@@ -471,3 +478,40 @@ async def test_news_service_catches_up_multiple_same_day_recurring_occurrences()
     assert dispatcher.calls[0]["body"].startswith("Bitcoin 10:00 update")
     assert dispatcher.calls[1]["body"].startswith("Bitcoin 10:05 update")
     assert alert.scenario_payload["baseline_published_at"] == "2026-06-04T10:05:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_price_service_bootstraps_new_cursor_from_legacy_cursor() -> None:
+    alert = _make_alert(
+        scenario_payload={
+            "scenario": "price_above",
+            "trigger_mode": "currency",
+            "threshold_value": 100000.0,
+        }
+    )
+    alert_repository = FakeAlertRepository([alert])
+    job_repository = FakeJobRepository()
+    job_repository.set_cursor(
+        LEGACY_ALERT_EVALUATION_CURSOR,
+        datetime(2026, 6, 4, 9, 55, tzinfo=UTC),
+    )
+    service = PriceScheduledAlertEvaluationService(
+        alert_repository=alert_repository,
+        job_repository=job_repository,
+        market_data_service=FakeMarketDataService(
+            assets={"bitcoin": _make_price_asset(current_price=105000.0)}
+        ),
+        telegram_dispatcher=FakeTelegramDispatcher(),
+        clock=lambda: datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    processed = await service.run_due_windows()
+
+    assert processed == 1
+    assert job_repository.requested_names == [
+        PRICE_ALERT_EVALUATION_CURSOR,
+        LEGACY_ALERT_EVALUATION_CURSOR,
+    ]
+    assert job_repository.cursors[
+        PRICE_ALERT_EVALUATION_CURSOR
+    ].last_processed_window_end == datetime(2026, 6, 4, 10, 0, tzinfo=UTC)

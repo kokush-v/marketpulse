@@ -25,8 +25,8 @@
 - `NEWS_API_KEY` - required for NewsAPI-backed coin news search
 - `NEWS_API_BASE_URL` - optional, defaults to `https://newsapi.org/v2`
 - `MARKET_OVERVIEW_DETAIL_THREADS` - optional, defaults to `4`
-- `MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS` - optional, defaults to `3600`
-- `MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS` - optional, defaults to `21600`
+- `MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS` - optional, defaults to `900`
+- `MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS` - optional, defaults to `1800`
 - `MARKET_OVERVIEW_REFRESH_LOCK_TTL_SECONDS` - optional, defaults to `300`
 - `REDIS_URL` - required in production for the shared cache backend
 - `WEB_CONCURRENCY` - optional Puma worker count for production

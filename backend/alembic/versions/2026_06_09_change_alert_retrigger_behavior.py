@@ -52,8 +52,6 @@ def upgrade() -> None:
         .values(status="paused")
     )
 
-    op.alter_column("alert_rules", "arm_version", server_default=None)
-
 
 def downgrade() -> None:
     op.drop_column("alert_rules", "last_triggered_at")

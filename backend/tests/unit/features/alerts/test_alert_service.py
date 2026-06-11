@@ -9,6 +9,7 @@ from app.features.alerts.schemas import CreateAlertRequest, UpdateAlertRequest
 from app.features.alerts.service import AlertService, AlertServiceError
 from app.features.auth.models import User
 from app.features.market_data.schemas import AssetSearchResultResponse
+from app.features.market_data.service import UpstreamMarketDataError
 
 
 class FakeAlertRepository:
@@ -80,9 +81,11 @@ class FakeMarketDataService:
         self,
         asset: AssetSearchResultResponse | None,
         latest_news_published_at: str | None = None,
+        news_error: UpstreamMarketDataError | None = None,
     ) -> None:
         self.asset = asset
         self.latest_news_published_at = latest_news_published_at
+        self.news_error = news_error
 
     async def find_asset(self, *, asset_id: str, symbol: str, name: str):
         if (
@@ -96,6 +99,8 @@ class FakeMarketDataService:
 
     async def get_coin_news(self, query: str):
         _ = query
+        if self.news_error is not None:
+            raise self.news_error
         articles = []
         if self.latest_news_published_at is not None:
             articles.append(
@@ -293,6 +298,38 @@ async def test_create_news_alert_does_not_require_trigger_data() -> None:
     assert created.threshold_value is None
     assert created.rule_summary == "Any new coin news"
     assert created.time_summary == "One-time alert that pauses after it fires"
+
+
+@pytest.mark.asyncio
+async def test_create_news_alert_translates_upstream_failure_to_service_error() -> None:
+    user = _make_user()
+    service = AlertService(
+        repository=FakeAlertRepository(),
+        market_data_service=FakeMarketDataService(
+            _make_asset(),
+            news_error=UpstreamMarketDataError(
+                status_code=503,
+                message="Market data service is unavailable",
+            ),
+        ),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+    with pytest.raises(AlertServiceError) as exc_info:
+        await service.create_alert(
+            user,
+            CreateAlertRequest(
+                asset_id="bitcoin",
+                symbol="btc",
+                name="Bitcoin",
+                image_url=None,
+                scenario="coin_news",
+                time_behavior="one_time",
+            ),
+        )
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.message == "Market data service is unavailable"
 
 
 @pytest.mark.asyncio

@@ -15,6 +15,7 @@ from app.features.telegram.service import TelegramNotificationDispatcher
 
 logger = logging.getLogger("uvicorn.error")
 
+LEGACY_ALERT_EVALUATION_CURSOR = "scheduled_alert_evaluation"
 PRICE_ALERT_EVALUATION_CURSOR = "scheduled_price_alert_evaluation"
 NEWS_ALERT_EVALUATION_CURSOR = "scheduled_news_alert_evaluation"
 ALERT_EVALUATION_CADENCE = timedelta(minutes=5)
@@ -238,9 +239,13 @@ class BaseScheduledAlertEvaluationService(ABC):
         current_window_end = self._align_window_end(self.clock())
         cursor = await self.job_repository.get_cursor(self.cursor_name)
         if cursor is None:
+            legacy_cursor = await self.job_repository.get_cursor(LEGACY_ALERT_EVALUATION_CURSOR)
+            default_window_end = current_window_end - ALERT_EVALUATION_CADENCE
+            if legacy_cursor is not None and legacy_cursor.last_processed_window_end is not None:
+                default_window_end = legacy_cursor.last_processed_window_end
             cursor = await self.job_repository.ensure_cursor(
                 name=self.cursor_name,
-                default_last_processed_window_end=current_window_end - ALERT_EVALUATION_CADENCE,
+                default_last_processed_window_end=default_window_end,
             )
 
         if cursor.last_processed_window_end is None:

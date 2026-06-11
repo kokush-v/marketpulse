@@ -21,7 +21,7 @@ from app.features.alerts.schemas import (
     UpdateAlertRequest,
 )
 from app.features.auth.models import User
-from app.features.market_data.service import MarketDataService
+from app.features.market_data.service import MarketDataService, UpstreamMarketDataError
 from app.features.watchlists.repository import WatchlistRepository
 from app.features.watchlists.service import get_watchlist_repository
 
@@ -204,7 +204,13 @@ class AlertService:
         return float(asset.current_price)
 
     async def _resolve_news_baseline(self, name: str) -> str:
-        news = await self.market_data_service.get_coin_news(name)
+        try:
+            news = await self.market_data_service.get_coin_news(name)
+        except UpstreamMarketDataError as error:
+            raise AlertServiceError(
+                status_code=error.status_code,
+                message=error.message,
+            ) from error
         latest_published_at = max(
             (
                 article.published_at
