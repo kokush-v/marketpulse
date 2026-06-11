@@ -47,8 +47,21 @@ class FakeAlertRepository:
         alert.updated_at = datetime.now(tz=UTC)
         return alert
 
-    async def set_alert_status(self, alert, status):
+    async def set_alert_status(
+        self,
+        alert,
+        status,
+    ):
         alert.status = status
+        alert.updated_at = datetime.now(tz=UTC)
+        return alert
+
+    async def resume_rearmed_one_time_alert(self, alert, *, scenario_payload, arm_version):
+        alert.status = "active"
+        alert.scenario_payload = scenario_payload
+        alert.last_triggered_on = None
+        alert.last_triggered_at = None
+        alert.arm_version = arm_version
         alert.updated_at = datetime.now(tz=UTC)
         return alert
 
@@ -63,8 +76,13 @@ class FakeAlertRepository:
 
 
 class FakeMarketDataService:
-    def __init__(self, asset: AssetSearchResultResponse | None) -> None:
+    def __init__(
+        self,
+        asset: AssetSearchResultResponse | None,
+        latest_news_published_at: str | None = None,
+    ) -> None:
         self.asset = asset
+        self.latest_news_published_at = latest_news_published_at
 
     async def find_asset(self, *, asset_id: str, symbol: str, name: str):
         if (
@@ -75,6 +93,19 @@ class FakeMarketDataService:
         ):
             return self.asset
         return None
+
+    async def get_coin_news(self, query: str):
+        _ = query
+        articles = []
+        if self.latest_news_published_at is not None:
+            articles.append(
+                SimpleNamespace(
+                    title="Latest news",
+                    url="https://example.com/news/latest",
+                    published_at=self.latest_news_published_at,
+                )
+            )
+        return SimpleNamespace(articles=articles)
 
 
 class FakeWatchlistRepository:
@@ -135,7 +166,9 @@ def _make_alert(*, user_id, status: str = "active", asset_id: str = "bitcoin") -
         time_behavior="one_time",
         recurring_start_date=None,
         recurring_end_date=None,
+        arm_version=1,
         last_triggered_on=None,
+        last_triggered_at=None,
         created_at=datetime.now(tz=UTC),
         updated_at=datetime.now(tz=UTC),
     )
@@ -162,7 +195,7 @@ async def test_list_alerts_returns_only_user_owned_items() -> None:
     assert response.items[0].asset_id == "bitcoin"
     assert response.items[0].scenario == "price_above"
     assert response.items[0].time_behavior == "one_time"
-    assert response.items[0].time_summary == "One-time alert"
+    assert response.items[0].time_summary == "One-time alert that pauses after it fires"
 
 
 @pytest.mark.asyncio
@@ -193,7 +226,7 @@ async def test_create_alert_captures_percent_baseline() -> None:
     assert created.baseline_price == 100000.0
     assert created.rule_summary == "Price up 15% from baseline"
     assert created.time_behavior == "one_time"
-    assert created.time_summary == "One-time alert"
+    assert created.time_summary == "One-time alert that pauses after it fires"
 
 
 @pytest.mark.asyncio
@@ -259,7 +292,7 @@ async def test_create_news_alert_does_not_require_trigger_data() -> None:
     assert created.trigger_mode is None
     assert created.threshold_value is None
     assert created.rule_summary == "Any new coin news"
-    assert created.time_summary == "One-time alert"
+    assert created.time_summary == "One-time alert that pauses after it fires"
 
 
 @pytest.mark.asyncio
@@ -310,7 +343,9 @@ async def test_update_alert_replaces_coin_and_recaptures_percent_baseline() -> N
         time_behavior="one_time",
         recurring_start_date=None,
         recurring_end_date=None,
+        arm_version=1,
         last_triggered_on=None,
+        last_triggered_at=None,
         created_at=datetime.now(tz=UTC),
         updated_at=datetime.now(tz=UTC),
     )
@@ -355,7 +390,7 @@ async def test_update_alert_replaces_coin_and_recaptures_percent_baseline() -> N
     assert updated.status == "paused"
     assert updated.scenario == "price_below"
     assert updated.baseline_price == 100000.0
-    assert updated.time_summary == "One-time alert"
+    assert updated.time_summary == "One-time alert that pauses after it fires"
 
 
 @pytest.mark.asyncio
@@ -406,6 +441,136 @@ async def test_pause_resume_and_delete_alert() -> None:
     assert resumed.status == "active"
     assert deleted.success is True
     assert repository.alerts == []
+
+
+@pytest.mark.asyncio
+async def test_resume_triggered_one_time_percent_alert_rearms_from_current_price() -> None:
+    user = _make_user()
+    existing = _make_alert(user_id=user.id, status="paused")
+    existing.scenario_payload = {
+        "scenario": "price_above",
+        "trigger_mode": "percent",
+        "threshold_value": 5.0,
+        "baseline_price": 95000.0,
+        "is_armed": False,
+    }
+    existing.last_triggered_on = date(2026, 6, 9)
+    existing.last_triggered_at = datetime(2026, 6, 9, 12, 0, tzinfo=UTC)
+    existing.arm_version = 2
+    repository = FakeAlertRepository([existing])
+    service = AlertService(
+        repository=repository,
+        market_data_service=FakeMarketDataService(_make_asset()),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+    resumed = await service.resume_alert(user, existing.id)
+
+    assert resumed.status == "active"
+    assert existing.scenario_payload["baseline_price"] == 100000.0
+    assert existing.scenario_payload["is_armed"] is True
+    assert existing.last_triggered_on is None
+    assert existing.last_triggered_at is None
+    assert existing.arm_version == 3
+
+
+@pytest.mark.asyncio
+async def test_resume_triggered_one_time_currency_alert_rearms_from_current_price() -> None:
+    user = _make_user()
+    existing = _make_alert(user_id=user.id, status="paused")
+    existing.scenario_payload = {
+        "scenario": "price_above",
+        "trigger_mode": "currency",
+        "threshold_value": 95000.0,
+        "is_armed": False,
+    }
+    existing.last_triggered_on = date(2026, 6, 9)
+    existing.last_triggered_at = datetime(2026, 6, 9, 12, 0, tzinfo=UTC)
+    repository = FakeAlertRepository([existing])
+    service = AlertService(
+        repository=repository,
+        market_data_service=FakeMarketDataService(_make_asset()),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+    resumed = await service.resume_alert(user, existing.id)
+
+    assert resumed.status == "active"
+    assert existing.scenario_payload["threshold_value"] == 100000.0
+    assert existing.scenario_payload["is_armed"] is True
+    assert existing.last_triggered_on is None
+    assert existing.last_triggered_at is None
+
+
+@pytest.mark.asyncio
+async def test_resume_triggered_one_time_news_alert_rearms_from_current_news_state() -> None:
+    user = _make_user()
+    existing = _make_alert(user_id=user.id, status="paused")
+    existing.scenario_payload = {
+        "scenario": "coin_news",
+        "baseline_published_at": "2026-06-09T08:00:00+00:00",
+    }
+    existing.last_triggered_on = date(2026, 6, 9)
+    existing.last_triggered_at = datetime(2026, 6, 9, 12, 0, tzinfo=UTC)
+    repository = FakeAlertRepository([existing])
+    service = AlertService(
+        repository=repository,
+        market_data_service=FakeMarketDataService(
+            _make_asset(),
+            latest_news_published_at="2026-06-09T12:30:00+00:00",
+        ),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+    resumed = await service.resume_alert(user, existing.id)
+
+    assert resumed.status == "active"
+    assert existing.scenario_payload["baseline_published_at"] == "2026-06-09T12:30:00+00:00"
+    assert existing.last_triggered_at is None
+
+
+@pytest.mark.asyncio
+async def test_resume_triggered_one_time_news_alert_uses_newest_visible_article() -> None:
+    user = _make_user()
+    existing = _make_alert(user_id=user.id, status="paused")
+    existing.scenario_payload = {
+        "scenario": "coin_news",
+        "baseline_published_at": "2026-06-09T08:00:00+00:00",
+    }
+    existing.last_triggered_on = date(2026, 6, 9)
+    existing.last_triggered_at = datetime(2026, 6, 9, 12, 0, tzinfo=UTC)
+    repository = FakeAlertRepository([existing])
+    service = AlertService(
+        repository=repository,
+        market_data_service=FakeMarketDataService(
+            _make_asset(),
+            latest_news_published_at="2026-06-09T12:30:00+00:00",
+        ),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+    async def _get_coin_news(query: str):
+        _ = query
+        return SimpleNamespace(
+            articles=[
+                SimpleNamespace(
+                    title="Older",
+                    url="https://example.com/news/older",
+                    published_at="2026-06-09T10:00:00+00:00",
+                ),
+                SimpleNamespace(
+                    title="Newest",
+                    url="https://example.com/news/newest",
+                    published_at="2026-06-09T12:30:00+00:00",
+                ),
+            ]
+        )
+
+    service.market_data_service.get_coin_news = _get_coin_news  # type: ignore[method-assign]
+
+    await service.resume_alert(user, existing.id)
+
+    assert existing.scenario_payload["baseline_published_at"] == "2026-06-09T12:30:00+00:00"
 
 
 @pytest.mark.asyncio
@@ -507,4 +672,4 @@ async def test_create_alert_returns_recurring_time_summary() -> None:
     assert created.time_behavior == "daily_recurring"
     assert created.recurring_start_date == date(2026, 5, 27)
     assert created.recurring_end_date == date(2026, 6, 3)
-    assert created.time_summary == "Once per day from 2026-05-27 to 2026-06-03"
+    assert created.time_summary == "Recurring from 2026-05-27 to 2026-06-03"

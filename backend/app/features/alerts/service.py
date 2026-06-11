@@ -93,6 +93,15 @@ class AlertService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="Alert not found",
             )
+        if alert.time_behavior == "one_time" and alert.last_triggered_at is not None:
+            rearmed_payload = await self._rearm_one_time_alert(alert)
+            resumed = await self.repository.resume_rearmed_one_time_alert(
+                alert,
+                scenario_payload=rearmed_payload,
+                arm_version=alert.arm_version + 1,
+            )
+            return self._to_response(resumed)
+
         resumed = await self.repository.set_alert_status(alert, "active")
         return self._to_response(resumed)
 
@@ -156,7 +165,7 @@ class AlertService:
         if scenario == "coin_news":
             return {
                 "scenario": scenario,
-                "baseline_published_at": datetime.now(tz=UTC).isoformat(),
+                "baseline_published_at": await self._resolve_news_baseline(name),
             }
 
         if trigger_mode is None or threshold_value is None:
@@ -169,6 +178,7 @@ class AlertService:
             "scenario": scenario,
             "trigger_mode": trigger_mode,
             "threshold_value": float(threshold_value),
+            "is_armed": True,
         }
 
         if trigger_mode == "percent":
@@ -192,6 +202,39 @@ class AlertService:
                 message="Current price is unavailable for the selected coin",
             )
         return float(asset.current_price)
+
+    async def _resolve_news_baseline(self, name: str) -> str:
+        news = await self.market_data_service.get_coin_news(name)
+        latest_published_at = max(
+            (
+                article.published_at
+                for article in news.articles
+                if article.published_at and article.published_at.strip()
+            ),
+            default=None,
+            key=lambda published_at: datetime.fromisoformat(published_at.replace("Z", "+00:00")),
+        )
+        return latest_published_at or datetime.now(tz=UTC).isoformat()
+
+    async def _rearm_one_time_alert(self, alert: AlertRule) -> dict[str, object]:
+        scenario = str(alert.scenario_payload["scenario"])
+        next_payload = dict(alert.scenario_payload)
+
+        if scenario == "coin_news":
+            next_payload["baseline_published_at"] = await self._resolve_news_baseline(alert.name)
+            return next_payload
+
+        next_payload["is_armed"] = True
+        current_price = await self._resolve_current_price(
+            asset_id=alert.asset_id,
+            symbol=alert.symbol,
+            name=alert.name,
+        )
+        if str(alert.scenario_payload.get("trigger_mode")) == "percent":
+            next_payload["baseline_price"] = current_price
+        else:
+            next_payload["threshold_value"] = current_price
+        return next_payload
 
     def _to_response(self, alert: AlertRule) -> AlertResponse:
         scenario_payload = alert.scenario_payload
@@ -253,7 +296,7 @@ class AlertService:
     ) -> str:
         if time_behavior == "daily_recurring" and recurring_start_date and recurring_end_date:
             return (
-                f"Once per day from {recurring_start_date.isoformat()} "
+                f"Recurring from {recurring_start_date.isoformat()} "
                 f"to {recurring_end_date.isoformat()}"
             )
-        return "One-time alert"
+        return "One-time alert that pauses after it fires"

@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, String, func, text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,7 +49,12 @@ class AlertRule(Base):
     )
     recurring_start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     recurring_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    arm_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     last_triggered_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     scenario_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

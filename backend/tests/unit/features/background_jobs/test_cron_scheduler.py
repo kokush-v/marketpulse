@@ -13,16 +13,35 @@ from app.features.background_jobs.cron_scheduler import (
 )
 
 
-def test_registered_cron_jobs_include_scheduled_alert_evaluation() -> None:
+def test_registered_cron_jobs_include_split_alert_evaluation_jobs() -> None:
     jobs = get_registered_cron_jobs()
-    scheduled_alert_job = next(
-        (job for job in jobs if job.name == "scheduled-alert-evaluation"),
+    scheduled_price_job = next(
+        (job for job in jobs if job.name == "scheduled-price-alert-evaluation"),
+        None,
+    )
+    scheduled_news_job = next(
+        (job for job in jobs if job.name == "scheduled-news-alert-evaluation"),
         None,
     )
 
-    assert scheduled_alert_job is not None
-    assert scheduled_alert_job.schedule.expression == "*/5 * * * *"
-    assert scheduled_alert_job.command == ("python", "-m", "app.features.background_jobs.runner")
+    assert scheduled_price_job is not None
+    assert scheduled_news_job is not None
+    assert scheduled_price_job.schedule.expression == "*/5 * * * *"
+    assert scheduled_news_job.schedule.expression == "*/5 * * * *"
+    assert scheduled_price_job.command == (
+        "python",
+        "-m",
+        "app.features.background_jobs.runner",
+        "--job",
+        "price",
+    )
+    assert scheduled_news_job.command == (
+        "python",
+        "-m",
+        "app.features.background_jobs.runner",
+        "--job",
+        "news",
+    )
 
 
 def test_cron_expression_matches_every_five_minutes() -> None:
@@ -47,7 +66,7 @@ async def test_command_runner_logs_trigger_and_failure(
             return 2
 
     async def fake_create_subprocess_exec(*args: str):
-        assert args == ("python", "-m", "app.features.background_jobs.runner")
+        assert args == ("python", "-m", "app.features.background_jobs.runner", "--job", "price")
         return FakeProcess()
 
     monkeypatch.setattr(
@@ -56,9 +75,9 @@ async def test_command_runner_logs_trigger_and_failure(
     )
     runner = CronCommandRunner()
     job = RegisteredCronJob(
-        name="scheduled-alert-evaluation",
+        name="scheduled-price-alert-evaluation",
         schedule=CronExpression.parse("*/5 * * * *"),
-        command=("python", "-m", "app.features.background_jobs.runner"),
+        command=("python", "-m", "app.features.background_jobs.runner", "--job", "price"),
     )
 
     with caplog.at_level("INFO", logger="marketpulse.cron"):
@@ -84,9 +103,9 @@ async def test_command_runner_logs_startup_failure_without_raising(
     )
     runner = CronCommandRunner()
     job = RegisteredCronJob(
-        name="scheduled-alert-evaluation",
+        name="scheduled-news-alert-evaluation",
         schedule=CronExpression.parse("*/5 * * * *"),
-        command=("python", "-m", "app.features.background_jobs.runner"),
+        command=("python", "-m", "app.features.background_jobs.runner", "--job", "news"),
     )
 
     with caplog.at_level("INFO", logger="marketpulse.cron"):
@@ -105,9 +124,9 @@ async def test_scheduler_suppresses_unexpected_runner_failure(caplog) -> None:
             raise RuntimeError("unexpected failure")
 
     job = RegisteredCronJob(
-        name="scheduled-alert-evaluation",
+        name="scheduled-price-alert-evaluation",
         schedule=CronExpression.parse("*/5 * * * *"),
-        command=("python", "-m", "app.features.background_jobs.runner"),
+        command=("python", "-m", "app.features.background_jobs.runner", "--job", "price"),
     )
     scheduler = CronScheduler(jobs=(job,), runner=ExplodingRunner())
 
