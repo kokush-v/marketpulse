@@ -35,8 +35,8 @@ module MarketDataApi
     config.x.market_overview_ranked_asset_ids = MARKET_OVERVIEW_TOP_25_CRYPTO_ASSET_IDS
     config.x.market_overview_ranking_basis = "Top 25 crypto assets by market capitalization"
     config.x.market_overview_detail_threads = ENV.fetch("MARKET_OVERVIEW_DETAIL_THREADS", 4).to_i
-    config.x.market_overview_snapshot_fresh_ttl = ENV.fetch("MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS", 3600).to_i
-    config.x.market_overview_snapshot_stale_ttl = ENV.fetch("MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS", 21600).to_i
+    config.x.market_overview_snapshot_fresh_ttl = ENV.fetch("MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS", 900).to_i
+    config.x.market_overview_snapshot_stale_ttl = ENV.fetch("MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS", 1800).to_i
     config.x.market_overview_refresh_lock_ttl = ENV.fetch("MARKET_OVERVIEW_REFRESH_LOCK_TTL_SECONDS", 300).to_i
     config.x.market_overview_refresh_task_name = "market_overview:refresh"
     config.x.market_overview_scheduler_description = "Run `bundle exec rake market_overview:refresh` at or under the snapshot freshness interval in production."

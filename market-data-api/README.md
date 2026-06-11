@@ -25,8 +25,8 @@
 - `NEWS_API_KEY` - required for NewsAPI-backed coin news search
 - `NEWS_API_BASE_URL` - optional, defaults to `https://newsapi.org/v2`
 - `MARKET_OVERVIEW_DETAIL_THREADS` - optional, defaults to `4`
-- `MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS` - optional, defaults to `3600`
-- `MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS` - optional, defaults to `21600`
+- `MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS` - optional, defaults to `900`
+- `MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS` - optional, defaults to `1800`
 - `MARKET_OVERVIEW_REFRESH_LOCK_TTL_SECONDS` - optional, defaults to `300`
 - `REDIS_URL` - required in production for the shared cache backend
 - `WEB_CONCURRENCY` - optional Puma worker count for production
@@ -47,12 +47,14 @@ This keeps the dashboard live on crypto prices and charts without making the pro
 - successful market overview payloads are stored as reusable snapshots
 - production requests prefer reading the latest reusable snapshot instead of rebuilding the full provider payload inline
 - development and test may continue using `memory_store`, but production requires a shared Redis cache via `REDIS_URL`
+- successful snapshots are treated as fresh for 15 minutes after the most recent successful refresh
 - successful snapshots remain available for stale fallback during transient refresh failures within the configured stale retention window
+- the stale fallback retention window is 30 minutes after the most recent successful refresh
 - `GET /api/v1/news` is fetched on demand and is not cached in v1
 
 ## Production refresh flow
 
-- run `bundle exec rake market_overview:refresh` from a scheduler at or under the snapshot freshness interval
+- run `bundle exec rake market_overview:refresh` from a scheduler at or under the 15-minute snapshot freshness interval
 - the refresh task rebuilds the reusable snapshot outside the normal request path
 - if refresh fails and a previous snapshot exists, the service keeps serving the last successful snapshot
 - if no successful snapshot exists yet, the first request may perform a bounded cold-start build and will return a safe upstream failure if that build cannot complete successfully

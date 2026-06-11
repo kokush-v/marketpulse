@@ -1,0 +1,28 @@
+- [x] 1.1 Modify `alerts` requirements to define one-time auto-pause behavior, resume-time re-arming, and recurring same-day re-trigger semantics for price and news alerts.
+- [x] 1.2 Modify `notifications` requirements to define distinct notification-history records for multiple recurring trigger occurrences on the same day.
+- [x] 1.3 Modify `background-jobs` requirements to define recurring re-trigger processing, split alert schedulers, independent catch-up handling, and fresher market-overview snapshot retention expectations.
+- [x] 1.4 Modify `market-data` requirements to define a fifteen-minute fresh snapshot window and a thirty-minute stale fallback window for reusable market overview snapshots.
+- [x] 1.5 Add a design document covering lifecycle state changes, recurring re-arm semantics, scheduler architecture, market-overview freshness, persistence needs, and API/UI impact.
+- [x] 1.6 Validate the OpenSpec change with `openspec validate change-alert-retrigger-behavior --strict`.
+
+- [x] 2.1 Update backend alert lifecycle logic so one-time alerts auto-pause after a successful trigger.
+- [x] 2.2 Update backend resume behavior so previously triggered one-time alerts re-arm from the current market or news state at resume time.
+- [x] 2.3 Update recurring price-alert evaluation so each successful trigger recalibrates the next trigger threshold from the current price while the alert remains inside its active date window.
+- [x] 2.4 Update recurring news-alert evaluation so distinct newly available articles can trigger multiple same-day notifications while the alert remains inside its active date window.
+- [x] 2.5 Update alert persistence and migrations to store the state needed for re-arming, same-day recurring triggers, and catch-up-safe deduplication.
+- [x] 2.6 Update protected alert API responses and frontend UI so consumed one-time alerts visibly appear paused and resumed alerts reflect their re-armed state.
+- [x] 2.7 Update notification-history creation so distinct recurring occurrences on the same day remain separately visible to the owning user.
+- [x] 2.8 Update scheduled alert evaluation and catch-up processing so recurring alerts may trigger multiple times on the same day without collapsing distinct occurrences into one daily event.
+- [x] 2.9 Split scheduled alert evaluation into separate price and news jobs with distinct scheduler registration and cursor handling.
+- [x] 2.10 Refactor alert evaluation around a Factory Method-based creator structure so shared orchestration stays centralized while scenario-specific evaluators are created by concrete alert-family services.
+- [x] 2.11 Update the Ruby market-data service snapshot configuration so fresh market overview snapshots expire after fifteen minutes and stale snapshots expire after thirty minutes.
+- [x] 2.12 Update directly related runtime documentation or configuration examples for the new scheduler shape and market-overview TTLs.
+
+- [x] 3.1 Add backend or integration tests for one-time auto-pause and resume-time re-arming for price and news alerts.
+- [x] 3.2 Add backend or integration tests for recurring price alerts that trigger multiple times on the same day after each successful re-arm.
+- [x] 3.3 Add backend or integration tests for recurring news alerts that emit multiple same-day notifications for distinct new articles.
+- [x] 3.4 Add backend or integration tests for catch-up processing that preserves distinct same-day recurring occurrences without duplicating the same occurrence.
+- [x] 3.5 Add focused backend tests for split scheduling, independent cursors, and scenario-specific evaluation creation.
+- [x] 3.6 Regenerate OpenAPI and Orval clients if the alert API contract changes.
+- [x] 3.7 Run relevant backend and frontend checks for the changed alert workflows plus market-overview TTL changes.
+- [x] 3.8 Validate the OpenSpec change with `openspec validate change-alert-retrigger-behavior --strict`.

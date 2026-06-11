@@ -246,9 +246,9 @@ function getTimingPreview(params: {
 		return "Runs once, then the alert pauses after it eventually triggers.";
 	}
 	if (recurringStartDate && recurringEndDate) {
-		return `Can trigger once per day from ${formatShortDate(recurringStartDate)} to ${formatShortDate(recurringEndDate)}.`;
+		return `Can trigger multiple times from ${formatShortDate(recurringStartDate)} to ${formatShortDate(recurringEndDate)} whenever new eligible moves or articles appear.`;
 	}
-	return "Choose a start and end date for the once-per-day recurring window.";
+	return "Choose a start and end date for the recurring active window.";
 }
 
 function getPreviewText(params: {
@@ -834,7 +834,7 @@ export function AlertsEditor({
 				<CardHeader className="gap-3">
 					<CardTitle className="text-lg">Choose alert timing</CardTitle>
 					<CardDescription>
-						Decide whether this alert should fire once or stay eligible once per day for a fixed window.
+						Decide whether this alert should fire once or stay eligible throughout a fixed recurring window.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -848,7 +848,7 @@ export function AlertsEditor({
 							{
 								id: "daily_recurring" as const,
 								title: "Daily recurring",
-								description: "Allows one trigger per day inside a date range, then waits until the next day.",
+								description: "Allows multiple fresh triggers inside a date range when new price moves or articles appear.",
 							},
 						].map((option) => {
 							const isActive = timeBehavior === option.id;
@@ -883,7 +883,7 @@ export function AlertsEditor({
 									End: {formatDateFieldValue(recurringEndDate)}
 								</Badge>
 								<p className="basis-full text-sm leading-6 text-muted-foreground">
-									Inside this range, the alert can trigger at most once per day and becomes eligible again on the next calendar day.
+									Inside this range, the alert stays active and can trigger again whenever a new qualifying move or article appears.
 								</p>
 							</div>
 						</div>
@@ -903,7 +903,7 @@ export function AlertsEditor({
 					<CardTitle className="text-lg">Recurring window</CardTitle>
 					<CardDescription>
 						{timeBehavior === "daily_recurring"
-							? "Pick the calendar range in which this alert can fire once per day."
+							? "Pick the calendar range in which this alert stays eligible for fresh recurring triggers."
 							: "Switch to daily recurring if you want to open a calendar-based schedule window."}
 					</CardDescription>
 				</CardHeader>
@@ -1397,7 +1397,7 @@ export function AlertsEditor({
 										</CardHeader>
 										<CardContent className="space-y-3">
 											<GuidanceRow text="Coin selection stays scoped to your watchlist, so alerts mirror your saved universe." />
-											<GuidanceRow text="Recurring alerts use a clear start and end date window, and only become eligible once again on the next day." />
+											<GuidanceRow text="Recurring alerts use a clear start and end date window, and can notify again after a fresh qualifying move or newer article appears." />
 											<GuidanceRow text="Price alerts show the trigger directly on the chart, and the `% / $` toggle changes how the backend stores the rule." />
 											<GuidanceRow text="News alerts skip chart noise entirely and go straight to a simple subscription-style save." />
 										</CardContent>
