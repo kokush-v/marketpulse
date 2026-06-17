@@ -70,11 +70,13 @@ This keeps the dashboard live on crypto prices and charts without making the pro
 ```bash
 docker compose up -d postgres redis
 cd market-data-api
-eval "$(rbenv init - zsh)"
 gem install bundler
 bundle install
 bundle exec rails server -b 0.0.0.0 -p 3001
 ```
+
+If `rbenv` is not already initialized in your shell, initialize it using the
+command recommended by your shell setup before running the commands above.
 
 For a local Redis-backed cache, point `REDIS_URL` to `redis://localhost:6379/0`.
 
