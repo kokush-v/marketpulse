@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Configure Alert Time Behavior And Scheduled Trigger Delivery
+### Requirement: Support Alert Time Behavior Modes
 The system SHALL allow the user to configure time behavior for all alert types, SHALL evaluate all supported alert types through scheduled background processing every five minutes, SHALL allow eligible alert triggers to produce Telegram notifications when the user has an active Telegram connection, and SHALL centralize shared alert-trigger orchestration while creating scenario-specific evaluators through a common creator flow.
 
 #### Scenario: User creates a one-time alert
@@ -56,7 +56,7 @@ The system SHALL allow the user to configure time behavior for all alert types, 
 - **When** the system processes that alert trigger
 - **Then** the system does not require Telegram delivery to treat the alert trigger as valid
 
-### Requirement: Re-Arm Recurring Alerts For Distinct Same-Day Occurrences
+### Requirement: Limit Recurring Alerts To One Trigger Per Day
 The system SHALL keep recurring alerts eligible throughout their configured active date window and SHALL allow multiple legitimate trigger occurrences on the same calendar day when each later occurrence is based on newly advanced alert state rather than the prior stale state.
 
 #### Scenario: Recurring price alert triggers again after a successful re-arm

@@ -45,12 +45,14 @@ The system SHALL obtain public crypto market overview data through a dedicated R
 - **Given** a production deployment has a successful reusable market overview snapshot available
 - **When** the frontend requests public crypto market data through the FastAPI backend
 - **Then** the Ruby market-data service SHALL prefer returning the reusable snapshot instead of rebuilding the full upstream payload during that request
+- **And** the service SHALL treat that snapshot as fresh for no longer than fifteen minutes after the most recent successful snapshot refresh
 
 #### Scenario: Provider limit or failure occurs during snapshot refresh
 - **Given** the Ruby market-data service depends on CoinGecko provider responses
 - **And** the service has a previously successful market overview snapshot
 - **When** CoinGecko returns an error, malformed payload, timeout, or rate-limit response during a refresh attempt
 - **Then** the Ruby market-data service SHALL keep the last successful snapshot available when policy allows
+- **And** that stale fallback window SHALL expire within thirty minutes of the most recent successful snapshot
 - **And** the FastAPI backend continues to receive either a safe reusable snapshot response or a frontend-safe upstream failure response
 
 #### Scenario: No successful snapshot exists during a cold start
