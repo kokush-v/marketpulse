@@ -1,3 +1,5 @@
+> Archived as complete together with the matching `market-data-api` runtime-upgrade implementation and verification included in this PR branch.
+
 - [x] 1.1 Modify `market-data` requirements to state that the dedicated Ruby service runtime may be upgraded while preserving existing public market-data contracts.
 - [x] 1.2 Modify `news` requirements to preserve protected coin-news behavior during the Ruby service runtime upgrade.
 - [x] 1.3 Modify `background-jobs` requirements to preserve snapshot-refresh background behavior and observability during the runtime upgrade.
