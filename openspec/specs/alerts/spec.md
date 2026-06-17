@@ -242,11 +242,11 @@ The system SHALL allow the user to configure time behavior for all alert types, 
 - **Then** the system re-arms the alert from the current news state at resume time
 - **And** the alert does not re-trigger on articles that were already visible before the resume action
 
-#### Scenario: User creates a recurring alert
+#### Scenario: User creates a daily recurring alert
 - **Given** an authenticated user is creating any supported alert type
-- **When** the user chooses the recurring behavior
+- **When** the user chooses the `daily recurring` behavior
 - **Then** the system requires a start date and an end date for that alert
-- **And** the system stores that alert as a recurring alert with those date boundaries
+- **And** the system stores that alert as a daily recurring alert with those date boundaries
 
 #### Scenario: Supported alert types are evaluated on schedule
 - **Given** an authenticated user has active alerts of type `Price above`, `Price below`, and `News`
@@ -271,7 +271,7 @@ The system SHALL allow the user to configure time behavior for all alert types, 
 - **When** the system processes that alert trigger
 - **Then** the system does not require Telegram delivery to treat the alert trigger as valid
 
-### Requirement: Limit Recurring Alerts To One Trigger Per Day
+### Requirement: Allow Multiple Recurring Triggers Per Day When State Advances
 The system SHALL keep recurring alerts eligible throughout their configured active date window and SHALL allow multiple legitimate trigger occurrences on the same calendar day when each later occurrence is based on newly advanced alert state rather than the prior stale state.
 
 #### Scenario: Recurring price alert triggers again after a successful re-arm
@@ -322,4 +322,3 @@ The system SHALL return frontend-safe errors for invalid alert definitions, unav
 - **Given** an authenticated user
 - **When** the user submits an alert with an invalid threshold value
 - **Then** the system rejects the request with a validation error suitable for frontend display
-
