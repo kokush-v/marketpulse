@@ -82,6 +82,12 @@ The system SHALL create notification-history records when scheduled alert evalua
 - **When** the system processes that alert trigger
 - **Then** the system creates a notification-history record for that trigger
 
+#### Scenario: Multiple recurring triggers on the same day create separate history records
+- **Given** an authenticated user has a recurring alert inside its active date window
+- **And** that alert already created one notification-history record earlier on the same day
+- **When** a later distinct recurring occurrence triggers another alert notification on that same day
+- **Then** the system creates a separate notification-history record for that later occurrence
+
 #### Scenario: Catch-up processing creates notification history for a missed window
 - **Given** an authenticated user has an alert that became eligible during a missed evaluation window
 - **When** catch-up processing reaches that missed window

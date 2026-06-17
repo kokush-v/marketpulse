@@ -75,6 +75,9 @@ bundle install
 bundle exec rails server -b 0.0.0.0 -p 3001
 ```
 
+If `rbenv` is not already initialized in your shell, initialize it using the
+command recommended by your shell setup before running the commands above.
+
 For a local Redis-backed cache, point `REDIS_URL` to `redis://localhost:6379/0`.
 
 If another container needs to reach the service from Docker Desktop, use

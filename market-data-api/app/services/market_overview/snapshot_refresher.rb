@@ -1,4 +1,4 @@
-require Rails.root.join("app/services/coingecko/client")
+require Rails.root.join("app/services/coin_gecko/client")
 require Rails.root.join("app/services/market_overview/overview_builder")
 require Rails.root.join("app/services/market_overview/snapshot_store")
 
