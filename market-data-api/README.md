@@ -70,6 +70,7 @@ This keeps the dashboard live on crypto prices and charts without making the pro
 ```bash
 docker compose up -d postgres redis
 cd market-data-api
+eval "$(rbenv init - zsh)"
 gem install bundler
 bundle install
 bundle exec rails server -b 0.0.0.0 -p 3001

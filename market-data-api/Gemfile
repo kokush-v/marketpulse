@@ -1,15 +1,17 @@
 source "https://rubygems.org"
 
-ruby "3.4.6"
+ruby "4.0.5"
 
 gem "bigdecimal"
 gem "benchmark"
 gem "drb"
-gem "nokogiri", ">= 1.18.10"
+gem "jwt", "~> 2.10"
+gem "nokogiri", "1.18.10"
 gem "ostruct"
-gem "puma", "~> 5.6"
-gem "rack-cors", "~> 2.0"
-gem "rails", "~> 6.1.7"
+gem "pg", "~> 1.5"
+gem "puma", "~> 6.6"
+gem "rack-cors", "~> 3.0"
+gem "rails", "~> 8.1.3"
 gem "redis", "~> 5.4"
 gem "mutex_m"
 gem "tzinfo-data", platforms: %i[mingw mswin x64_mingw jruby]

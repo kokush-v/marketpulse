@@ -1,4 +1,4 @@
-require Rails.root.join("app/services/coingecko/client")
+require Rails.root.join("app/services/coin_gecko/client")
 
 module Api
   module V1

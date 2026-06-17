@@ -14,6 +14,8 @@ MARKET_OVERVIEW_TOP_25_CRYPTO_ASSET_IDS = %w[
 
 module MarketDataApi
   class Application < Rails::Application
+    # Keep the previous framework defaults during the runtime jump so the
+    # service contract stays stable while we upgrade Rails itself.
     config.load_defaults 6.1
     config.api_only = true
     config.autoload_paths << Rails.root.join("app/services")

@@ -1,3 +1,5 @@
+require Rails.root.join("app/services/coin_gecko/client")
+
 module MarketOverview
   class OverviewBuilder
     FEATURED_ASSET_COUNT = 25
