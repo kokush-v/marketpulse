@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: marketpulse-frontend
+  namespace: marketpulse
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: marketpulse.test
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: marketpulse-frontend
+                port:
+                  number: 3000

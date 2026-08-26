@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: marketpulse-backend-migrate
+  namespace: marketpulse
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: marketpulse-backend-migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: marketpulse-backend:dev
+          imagePullPolicy: IfNotPresent
+          command:
+            - alembic
+            - upgrade
+            - head
+          envFrom:
+            - configMapRef:
+                name: marketpulse-backend-config
+            - secretRef:
+                name: marketpulse-backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

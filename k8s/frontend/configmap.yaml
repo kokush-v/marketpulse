@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+   name: marketpulse-frontend-config
+   namespace: marketpulse
+data:
+   NEXT_PUBLIC_API_BASE_URL: http://marketpulse.test/api
+   MARKETPULSE_OPENAPI_URL: http://marketpulse.test/api/openapi.json
+   NEXT_PUBLIC_SUPABASE_URL: https://nnchxvqikzcgxypvdbsf.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_TDvYhAu1J0fl7Y21Vu9j6Q_OSzft8XR

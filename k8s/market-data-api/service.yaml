@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketpulse-market-data-api
+  namespace: marketpulse
+spec:
+  selector:
+    app: marketpulse-market-data-api
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+  type: ClusterIP

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: marketpulse-backend-config
+  namespace: marketpulse
+data:
+  APP_NAME: MarketPulse API
+  SUPABASE_URL: https://example.supabase.co
+  SUPABASE_JWT_ALGORITHM: RS256
+  SUPABASE_JWT_AUDIENCE: authenticated
+  FRONTEND_URL: http://marketpulse.test
+  MARKET_DATA_API_BASE_URL: http://marketpulse-market-data-api:3001
+  TELEGRAM_BOT_USERNAME: marketpulse_bot
+  TELEGRAM_LINK_TOKEN_TTL_SECONDS: "900"
+  TELEGRAM_TEST_NOTIFICATION_COOLDOWN_SECONDS: "10"
+  CORS_ALLOW_ORIGINS: http://marketpulse.test

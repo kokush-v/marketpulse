@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketpulse-frontend
+  namespace: marketpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marketpulse-frontend
+  template:
+    metadata:
+      labels:
+        app: marketpulse-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: marketpulse-frontend:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: marketpulse-frontend-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

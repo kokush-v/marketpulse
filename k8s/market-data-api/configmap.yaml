@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: marketpulse-market-data-api-config
+  namespace: marketpulse
+data:
+  COINGECKO_API_BASE_URL: https://api.coingecko.com/api/v3
+  COINGECKO_OPEN_TIMEOUT_SECONDS: "5"
+  COINGECKO_READ_TIMEOUT_SECONDS: "5"
+  COINGECKO_MAX_RETRIES: "1"
+  NEWS_API_BASE_URL: https://newsapi.org/v2
+  MARKET_OVERVIEW_DETAIL_THREADS: "4"
+  MARKET_OVERVIEW_SNAPSHOT_FRESH_TTL_SECONDS: "900"
+  MARKET_OVERVIEW_SNAPSHOT_STALE_TTL_SECONDS: "1800"
+  MARKET_OVERVIEW_REFRESH_LOCK_TTL_SECONDS: "300"
+  REDIS_URL: redis://marketpulse-redis:6379/0
+  WEB_CONCURRENCY: "2"
+  RAILS_MIN_THREADS: "3"
+  RAILS_MAX_THREADS: "8"

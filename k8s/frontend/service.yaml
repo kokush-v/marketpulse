@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketpulse-frontend
+  namespace: marketpulse
+spec:
+  selector:
+    app: marketpulse-frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+  type: ClusterIP

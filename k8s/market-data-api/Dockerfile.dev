@@ -1,0 +1,26 @@
+FROM ruby:4.0.5-slim
+
+ENV RAILS_ENV=production \
+    RACK_ENV=production \
+    PORT=3001 \
+    BIND=tcp://0.0.0.0:3001 \
+    BUNDLE_DEPLOYMENT=1 \
+    BUNDLE_WITHOUT=development:test \
+    BUNDLE_PATH=/usr/local/bundle
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev libyaml-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY market-data-api/Gemfile ./Gemfile
+COPY market-data-api/Gemfile.lock ./Gemfile.lock
+RUN bundle install \
+    && rm -rf /usr/local/bundle/cache
+
+COPY market-data-api/ .
+
+EXPOSE 3001
+
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

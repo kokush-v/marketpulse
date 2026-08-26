@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketpulse-market-data-api
+  namespace: marketpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marketpulse-market-data-api
+  template:
+    metadata:
+      labels:
+        app: marketpulse-market-data-api
+    spec:
+      containers:
+        - name: market-data-api
+          image: marketpulse-market-data-api:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+              name: http
+          envFrom:
+            - configMapRef:
+                name: marketpulse-market-data-api-config
+            - secretRef:
+                name: marketpulse-market-data-api-secrets
+          readinessProbe:
+            httpGet:
+              path: /up
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /up
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
