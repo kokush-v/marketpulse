@@ -16,21 +16,104 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: marketpulse-backend-dev
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://marketpulse:marketpulse@postgres:5432/marketpulse_dev
+      MARKET_DATA_API_BASE_URL: http://market-data-api:3001
+      WATCHFILES_FORCE_POLLING: "true"
+    command: >
+      sh -c "uv sync --dev --frozen && uv run alembic upgrade head &&
+      uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_venv:/app/.venv
+    depends_on:
+      postgres:
+        condition: service_healthy
+      market-data-api:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: marketpulse-frontend-dev
+    env_file:
+      - ./frontend/.env
+    environment:
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    command: sh -c "test -d node_modules/next || npm ci; npm run dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_started
+
+  market-data-api:
+    build:
+      context: ./market-data-api
+      dockerfile: Dockerfile.dev
+    container_name: marketpulse-market-data-api-dev
+    env_file:
+      - ./market-data-api/.env
+    environment:
+      RAILS_ENV: development
+      REDIS_URL: redis://redis:6379/0
+      BIND: tcp://0.0.0.0:3001
+      PORT: "3001"
+    command: >
+      sh -c "apt-get update && apt-get install -y --no-install-recommends build-essential libpq-dev libyaml-dev pkg-config &&
+      bundle install && bundle exec puma -C config/puma.rb"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./market-data-api:/app
+      - market_data_bundle:/usr/local/bundle
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "ruby -rnet/http -ruri -e 'exit(Net::HTTP.get_response(URI(\"http://127.0.0.1:3001/up\")).is_a?(Net::HTTPSuccess) ? 0 : 1)'",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
   backend-cron:
     build:
       context: ./backend
-      dockerfile: docker/cron/Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: marketpulse-backend-cron-dev
     env_file:
       - ./backend/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://marketpulse:marketpulse@postgres:5432/marketpulse_dev
-      MARKET_DATA_API_BASE_URL: http://host.docker.internal:3001
+      MARKET_DATA_API_BASE_URL: http://market-data-api:3001
+    command: sh -c "uv sync --dev --frozen && uv run python -m app.features.background_jobs.cron_runtime"
     depends_on:
       postgres:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      market-data-api:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_cron_venv:/app/.venv
     restart: unless-stopped
 
   redis:
@@ -67,3 +150,7 @@ services:
 volumes:
   postgres_dev_data:
   redis_dev_data:
+  backend_venv:
+  backend_cron_venv:
+  frontend_node_modules:
+  market_data_bundle:

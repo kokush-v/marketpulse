@@ -9,6 +9,27 @@ type OrvalRequest = {
   params?: Record<string, unknown>;
 };
 
+type ApiErrorPayload = {
+  code?: string;
+  message?: string;
+  retryable?: boolean;
+  retry_after_seconds?: number;
+  detail?: string | { message?: string };
+};
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly retryable = false,
+    public readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 function resolveApiUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) {
     return url;
@@ -106,10 +127,9 @@ export async function customFetch<T>(
     }
 
     let message = `Request failed with status ${response.status}`;
+    let payload: ApiErrorPayload | undefined;
     try {
-      const payload = (await response.json()) as
-        | { message?: string; detail?: string | { message?: string } }
-        | undefined;
+      payload = (await response.json()) as ApiErrorPayload | undefined;
 
       if (payload?.message) {
         message = payload.message;
@@ -122,7 +142,13 @@ export async function customFetch<T>(
       // Keep the default status-based error message when the payload is not JSON.
     }
 
-    throw new Error(message);
+    throw new ApiRequestError(
+      message,
+      response.status,
+      payload?.code,
+      payload?.retryable ?? false,
+      payload?.retry_after_seconds,
+    );
   }
 
   if (response.status === 204) {

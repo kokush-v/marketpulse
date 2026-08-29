@@ -26,6 +26,13 @@ Agents must follow OpenSpec before implementation work.
 - Summarize important assumptions before implementation.
 - Keep implementation aligned with `tasks.md`.
 
+## Containerized Development
+
+- Run application code, migrations, linters, tests, and generated-client commands through Docker Compose containers.
+- Do not start backend, frontend, market-data API, PostgreSQL, Redis, or cron processes directly on the host.
+- Start the development environment with `docker compose up --build` before running container commands.
+- Use `docker compose exec -T backend ...`, `docker compose exec -T frontend ...`, and `docker compose exec -T market-data-api ...` for service-specific commands.
+
 ## Required OpenSpec Reading
 
 Before creating or implementing a change, read:
@@ -287,9 +294,8 @@ Run relevant commands before marking work complete.
 Backend examples:
 
 ```bash
-cd backend
-make lint
-make test-unit
+docker compose exec -T backend uv run ruff check .
+docker compose exec -T backend uv run pytest tests/unit
 ```
 
 OpenSpec:
@@ -301,9 +307,9 @@ openspec validate <change-id> --strict
 Frontend examples:
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
+docker compose exec -T frontend npm run lint
+docker compose exec -T frontend npm run typecheck
+docker compose exec -T frontend npm run test
 ```
 
 Use the existing project scripts if they differ from these examples.

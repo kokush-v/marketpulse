@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -58,6 +60,21 @@ class AssetSearchResultResponse(BaseModel):
 
 class AssetSearchResponse(BaseModel):
     items: list[AssetSearchResultResponse]
+
+
+class HistoricalPricePointResponse(BaseModel):
+    time: str
+    price: float
+
+
+class HistoricalPriceSeriesResponse(BaseModel):
+    asset_id: str
+    points: list[HistoricalPricePointResponse]
+
+
+class HistoricalPriceChartResponse(BaseModel):
+    period: Literal["24h", "7d", "30d", "1y"]
+    series: list[HistoricalPriceSeriesResponse]
 
 
 class CoinNewsArticleResponse(BaseModel):

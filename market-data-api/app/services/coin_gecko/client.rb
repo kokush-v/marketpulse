@@ -49,6 +49,16 @@ module CoinGecko
       )
     end
 
+    def market_chart(id:, days:, vs_currency: "usd")
+      get_json(
+        "/coins/#{id}/market_chart",
+        {
+          vs_currency: vs_currency,
+          days: days
+        }
+      )
+    end
+
     private
 
     def get_json(path, query = {})

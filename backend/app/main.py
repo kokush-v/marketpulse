@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.features.ai_assistant.routes import router as assistant_router
 from app.features.alerts.routes import router as alerts_router
 from app.features.auth.routes import router as auth_router
 from app.features.market_data.routes import router as market_data_router
@@ -35,6 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(system_router)
+app.include_router(assistant_router)
 app.include_router(market_data_router)
 app.include_router(news_router)
 app.include_router(auth_router)

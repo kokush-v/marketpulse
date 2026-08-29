@@ -10,6 +10,7 @@ from app.features.market_data.schemas import (
     AssetSearchResponse,
     AssetSearchResultResponse,
     CoinNewsSearchResponse,
+    HistoricalPriceChartResponse,
     MarketOverviewResponse,
 )
 
@@ -101,6 +102,46 @@ class MarketDataService:
             )
 
         return CoinNewsSearchResponse.model_validate(response.json())
+
+    async def get_historical_prices(
+        self,
+        *,
+        asset_ids: list[str],
+        period: str,
+    ) -> HistoricalPriceChartResponse:
+        try:
+            async with httpx.AsyncClient(base_url=self._base_url, timeout=20.0) as client:
+                response = await client.get(
+                    "/api/v1/price-charts",
+                    params={"asset_ids": ",".join(asset_ids), "period": period},
+                )
+        except httpx.TimeoutException as exc:
+            raise self._upstream_exception(
+                status.HTTP_504_GATEWAY_TIMEOUT,
+                "Historical price data timed out upstream.",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise self._upstream_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                "Historical price data is unavailable right now.",
+            ) from exc
+
+        if response.status_code >= 400:
+            raise self._upstream_exception(
+                self._map_status_code(response.status_code),
+                self._extract_message(
+                    response,
+                    default_message="Historical price data is unavailable right now.",
+                ),
+            )
+
+        try:
+            return HistoricalPriceChartResponse.model_validate(response.json())
+        except (ValueError, TypeError) as exc:
+            raise self._upstream_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                "Historical price data is unavailable right now.",
+            ) from exc
 
     async def find_asset(
         self,

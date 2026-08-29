@@ -1,0 +1,82 @@
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+AssistantMessageRole = Literal["user", "assistant"]
+AssistantChartPeriod = Literal["24h", "7d", "30d", "1y"]
+AssistantErrorCode = Literal[
+    "assistant_not_configured",
+    "assistant_configuration_error",
+    "assistant_rate_limited",
+    "assistant_timeout",
+    "assistant_unavailable",
+    "invalid_model_response",
+    "conversation_not_found",
+    "invalid_message",
+    "invalid_conversation_title",
+]
+
+
+class CreateAssistantConversationRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+
+
+class SendAssistantMessageRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class UpdateAssistantConversationRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+
+
+class AssistantChartPointResponse(BaseModel):
+    time: str = Field(min_length=1)
+    price: float
+
+
+class AssistantChartSeriesResponse(BaseModel):
+    symbol: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=120)
+    points: list[AssistantChartPointResponse] = Field(min_length=1)
+
+
+class AssistantChartPayloadResponse(BaseModel):
+    period: AssistantChartPeriod
+    series: list[AssistantChartSeriesResponse] = Field(min_length=1, max_length=5)
+
+
+class AssistantMessageResponse(BaseModel):
+    id: UUID
+    role: AssistantMessageRole
+    content: str
+    suggested_replies: list[str] = Field(default_factory=list)
+    chart_payload: AssistantChartPayloadResponse | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AssistantConversationSummaryResponse(BaseModel):
+    id: UUID
+    title: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AssistantConversationResponse(AssistantConversationSummaryResponse):
+    messages: list[AssistantMessageResponse]
+
+
+class AssistantConversationListResponse(BaseModel):
+    items: list[AssistantConversationSummaryResponse]
+
+
+class AssistantErrorResponse(BaseModel):
+    code: AssistantErrorCode
+    message: str
+    retryable: bool = False
+    retry_after_seconds: int | None = Field(default=None, ge=1)

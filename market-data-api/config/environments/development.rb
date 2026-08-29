@@ -8,4 +8,5 @@ Rails.application.configure do
   config.active_support.deprecation = :log
   config.cache_store = :memory_store
   config.hosts << "host.docker.internal"
+  config.hosts << "market-data-api"
 end

@@ -8,6 +8,7 @@ import {
 	BellRing,
 	ChevronsUpDown,
 	LogOut,
+	MessageCircle,
 	Star,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ const navGroups = [
 			items: [
 				{ title: "Watchlist", icon: Star, href: "/watchlist" },
 				{ title: "Alerts", icon: BellRing, href: "/alerts" },
+				{ title: "Assistant", icon: MessageCircle, href: "/assistant" },
 			],
 		},
 	];

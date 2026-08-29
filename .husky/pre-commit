@@ -2,10 +2,9 @@
 
 set -e
 
-echo "Running backend lint via pre-commit..."
-cd backend
-uv run pre-commit run --config ../.pre-commit-config.yaml --all-files backend-lint
+echo "Running backend lint in Docker..."
+docker compose exec -T backend uv run ruff check .
+docker compose exec -T backend uv run ruff format --check .
 
-echo "Running frontend lint via husky..."
-cd ../frontend
-npm run lint
+echo "Running frontend lint in Docker..."
+docker compose exec -T frontend npm run lint

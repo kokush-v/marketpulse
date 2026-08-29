@@ -40,6 +40,8 @@ class StubAsyncClient:
         elif path == "/api/v1/news":
             assert params is not None
             assert "query" in params
+        elif path == "/api/v1/price-charts":
+            assert params == {"asset_ids": "bitcoin", "period": "7d"}
         else:
             assert path == "/api/v1/market-overview"
         return self._response
@@ -102,6 +104,34 @@ async def test_market_data_service_returns_asset_search_results(
 
     assert result.items[0].asset_id == "bitcoin"
     assert result.items[0].symbol == "BTC"
+
+
+@pytest.mark.asyncio
+async def test_market_data_service_returns_normalized_historical_prices(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "period": "7d",
+        "series": [
+            {
+                "asset_id": "bitcoin",
+                "points": [{"time": "2026-08-29T00:00:00Z", "price": 101_000.0}],
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: StubAsyncClient(response=StubResponse(status_code=200, payload=payload)),
+    )
+
+    result = await MarketDataService(base_url="http://localhost:3001").get_historical_prices(
+        asset_ids=["bitcoin"],
+        period="7d",
+    )
+
+    assert result.period == "7d"
+    assert result.series[0].points[0].price == 101_000.0
 
 
 @pytest.mark.asyncio

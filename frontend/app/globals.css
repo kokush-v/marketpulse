@@ -104,6 +104,67 @@ a {
 	@apply transition-colors;
 }
 
+@keyframes assistant-widget-in {
+	from {
+		opacity: 0;
+		transform: translateY(16px) scale(0.96);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes assistant-widget-out {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+
+	to {
+		opacity: 0;
+		transform: translateY(10px) scale(0.98);
+	}
+}
+
+@keyframes assistant-message-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px) scale(0.985);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+.assistant-widget-panel {
+	transform-origin: bottom right;
+}
+
+.assistant-widget-panel[data-state="open"] {
+	animation: assistant-widget-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.assistant-widget-panel[data-state="closed"] {
+	animation: assistant-widget-out 140ms ease-in;
+}
+
+.assistant-message-in {
+	animation: assistant-message-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.assistant-widget-panel,
+	.assistant-widget-panel[data-state="open"],
+	.assistant-widget-panel[data-state="closed"],
+	.assistant-message-in {
+		animation: none;
+	}
+}
+
 ::selection {
 	background: hsl(240 5.9% 10% / 0.2);
 }

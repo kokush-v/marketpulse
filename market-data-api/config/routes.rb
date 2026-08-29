@@ -6,6 +6,7 @@ Rails.application.routes.draw do
       get "market-overview", to: "market_overview#show"
       get "assets/search", to: "assets#search"
       get "news", to: "news#index"
+      get "price-charts", to: "price_charts#show"
     end
   end
 end

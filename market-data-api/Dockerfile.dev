@@ -1,0 +1,5 @@
+FROM ruby:4.0.5-slim
+
+WORKDIR /app
+
+EXPOSE 3001
