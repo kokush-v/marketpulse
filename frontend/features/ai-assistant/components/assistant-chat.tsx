@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, Check, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { ArrowDown, Bot, Check, MessageCircle, Pencil, Plus, RefreshCw, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -10,6 +10,8 @@ import {
   getGetConversationAssistantConversationsConversationIdGetQueryKey,
   getListConversationsAssistantConversationsGetQueryKey,
   useCreateConversationAssistantConversationsPost,
+  useCancelPendingActionAssistantConversationsConversationIdPendingActionsActionIdCancelPost,
+  useConfirmPendingActionAssistantConversationsConversationIdPendingActionsActionIdConfirmPost,
   useDeleteConversationAssistantConversationsConversationIdDelete,
   useGetConversationAssistantConversationsConversationIdGet,
   useListConversationsAssistantConversationsGet,
@@ -32,11 +34,24 @@ import { PriceChartCard } from "./price-chart-card";
 type AssistantChatProps = {
   showHistory?: boolean;
   compact?: boolean;
+  scrollPositions?: Map<string, number>;
+  activeConversationMemory?: React.MutableRefObject<string | undefined>;
 };
 
-export function AssistantChat({ showHistory = false, compact = false }: AssistantChatProps) {
+const EMPTY_SUGGESTED_REPLIES: string[] = [];
+
+export function AssistantChat({
+  showHistory = false,
+  compact = false,
+  scrollPositions: providedScrollPositions,
+  activeConversationMemory,
+}: AssistantChatProps) {
   const queryClient = useQueryClient();
-  const [activeConversationId, setActiveConversationId] = React.useState<string>();
+  const internalScrollPositions = React.useRef(new Map<string, number>());
+  const scrollPositions = providedScrollPositions ?? internalScrollPositions.current;
+  const [activeConversationId, setActiveConversationIdState] = React.useState<string | undefined>(
+    activeConversationMemory?.current,
+  );
   const [draft, setDraft] = React.useState("");
   const [pendingMessage, setPendingMessage] = React.useState<string>();
   const [failedMessage, setFailedMessage] = React.useState<FailedMessage>();
@@ -47,7 +62,23 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
   const [hiddenSuggestedReplyMessageIds, setHiddenSuggestedReplyMessageIds] = React.useState<Set<string>>(
     () => new Set(),
   );
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = React.useState(false);
+  const messagesViewportRef = React.useRef<HTMLDivElement>(null);
+  const activeConversationIdRef = React.useRef<string | undefined>(undefined);
+  const renderedConversationIdRef = React.useRef<string | undefined>(undefined);
+  const renderedMessageCountRef = React.useRef(0);
+  const isNearBottomRef = React.useRef(true);
+  const forceScrollToBottomRef = React.useRef(false);
+
+  const setActiveConversationId = React.useCallback(
+    (conversationId: string | undefined) => {
+      if (activeConversationMemory) {
+        activeConversationMemory.current = conversationId;
+      }
+      setActiveConversationIdState(conversationId);
+    },
+    [activeConversationMemory],
+  );
 
   const conversationsQuery = useListConversationsAssistantConversationsGet(undefined, {
     query: { staleTime: 30_000, retry: 1 },
@@ -61,6 +92,9 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
   const sendMessage = useSendMessageAssistantConversationsConversationIdMessagesPost();
   const updateConversationTitle = useUpdateConversationTitleAssistantConversationsConversationIdPatch();
   const deleteConversation = useDeleteConversationAssistantConversationsConversationIdDelete();
+  const confirmPendingAction = useConfirmPendingActionAssistantConversationsConversationIdPendingActionsActionIdConfirmPost();
+  const cancelPendingAction = useCancelPendingActionAssistantConversationsConversationIdPendingActionsActionIdCancelPost();
+  const [pendingActionError, setPendingActionError] = React.useState<string>();
 
   React.useEffect(() => {
     if (activeConversationId || !conversationsQuery.data?.items.length) {
@@ -97,6 +131,7 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
 
     setDraft("");
     setFailedMessage(undefined);
+    forceScrollToBottomRef.current = true;
     setPendingMessage(content);
 
     try {
@@ -136,11 +171,37 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
     void sendContent(draft);
   };
 
-  const retryFailedMessage = () => {
+  const retryFailedMessage = React.useCallback(() => {
     if (failedMessage) {
       void sendContent(failedMessage.content);
     }
-  };
+  }, [failedMessage, sendContent]);
+
+  const resolvePendingAction = React.useCallback(
+    async (actionId: string, operation: "confirm" | "cancel") => {
+      if (!activeConversationId) {
+        return;
+      }
+
+      try {
+        setPendingActionError(undefined);
+        const mutation = operation === "confirm" ? confirmPendingAction : cancelPendingAction;
+        const updatedConversation = await mutation.mutateAsync({
+          conversationId: activeConversationId,
+          actionId,
+        });
+        setConversation(updatedConversation);
+        await queryClient.invalidateQueries({
+          queryKey: getListConversationsAssistantConversationsGetQueryKey(),
+        });
+      } catch (error) {
+        setPendingActionError(
+          getErrorDetails(error, "We could not update that proposed action. Please try again.").message,
+        );
+      }
+    },
+    [activeConversationId, cancelPendingAction, confirmPendingAction, queryClient, setConversation],
+  );
 
   const selectSuggestedReply = React.useCallback(
     (messageId: string, reply: string) => {
@@ -152,6 +213,15 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
       void sendContent(reply);
     },
     [sendContent],
+  );
+
+  const confirmPendingActionInChat = React.useCallback(
+    (actionId: string) => void resolvePendingAction(actionId, "confirm"),
+    [resolvePendingAction],
+  );
+  const cancelPendingActionInChat = React.useCallback(
+    (actionId: string) => void resolvePendingAction(actionId, "cancel"),
+    [resolvePendingAction],
   );
 
   const startRenaming = (conversationId: string, title: string | null | undefined) => {
@@ -212,10 +282,81 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
   const conversation = conversationQuery.data;
   const messages = conversation?.messages ?? [];
   const isBusy = createConversation.isPending || sendMessage.isPending;
+  const isResolvingPendingAction = confirmPendingAction.isPending || cancelPendingAction.isPending;
+  const renderedMessageCount = messages.length + (pendingMessage ? 1 : 0) + (failedMessage ? 1 : 0);
+
+  activeConversationIdRef.current = activeConversationId;
+
+  const updateScrollPosition = React.useCallback(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport || !activeConversationId) {
+      return;
+    }
+
+    scrollPositions.set(activeConversationId, viewport.scrollTop);
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    const isNearBottom = distanceFromBottom <= 80;
+    isNearBottomRef.current = isNearBottom;
+    if (isNearBottom) {
+      setHasNewMessagesBelow(false);
+    }
+  }, [activeConversationId, scrollPositions]);
+
+  const scrollToBottom = React.useCallback((behavior: ScrollBehavior = "smooth") => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+    isNearBottomRef.current = true;
+    setHasNewMessagesBelow(false);
+    if (activeConversationId) {
+      scrollPositions.set(activeConversationId, viewport.scrollHeight);
+    }
+  }, [activeConversationId, scrollPositions]);
+
+  React.useLayoutEffect(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport || !activeConversationId || conversation?.id !== activeConversationId) {
+      return;
+    }
+
+    const conversationChanged = renderedConversationIdRef.current !== activeConversationId;
+    if (conversationChanged) {
+      renderedConversationIdRef.current = activeConversationId;
+      renderedMessageCountRef.current = renderedMessageCount;
+      const savedPosition = scrollPositions.get(activeConversationId);
+      viewport.scrollTop = savedPosition ?? viewport.scrollHeight;
+      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      isNearBottomRef.current = distanceFromBottom <= 80;
+      forceScrollToBottomRef.current = false;
+      setHasNewMessagesBelow(false);
+      return;
+    }
+
+    if (renderedMessageCount > renderedMessageCountRef.current) {
+      if (forceScrollToBottomRef.current || isNearBottomRef.current) {
+        scrollToBottom("smooth");
+      } else {
+        setHasNewMessagesBelow(true);
+      }
+    }
+
+    renderedMessageCountRef.current = renderedMessageCount;
+    forceScrollToBottomRef.current = false;
+  }, [activeConversationId, conversation?.id, renderedMessageCount, scrollPositions, scrollToBottom]);
 
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [failedMessage, isBusy, messages.length, pendingMessage]);
+    const viewportRef = messagesViewportRef;
+    return () => {
+      const viewport = viewportRef.current;
+      const conversationId = activeConversationIdRef.current;
+      if (viewport && conversationId) {
+        scrollPositions.set(conversationId, viewport.scrollTop);
+      }
+    };
+  }, [scrollPositions]);
 
   return (
     <div className={cn("flex min-h-0 min-w-0 flex-1 overflow-hidden", showHistory && "rounded-2xl border border-border/50 bg-card") }>
@@ -315,8 +456,8 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
         </aside>
       ) : null}
 
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className={cn("shrink-0 border-b border-border/50 px-4 py-3", compact ? "pr-12" : "") }>
+      <section className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border/50 px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Bot className="size-4" />
@@ -328,8 +469,13 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
           </div>
         </div>
 
-        <ScrollArea className="min-h-0 min-w-0 flex-1 px-6 sm:px-8 lg:px-10">
-          <div className="flex min-h-full min-w-0 w-full flex-col justify-end gap-4 py-5">
+        <ScrollArea
+          className={cn("min-h-0 min-w-0 flex-1 overflow-x-hidden", compact ? "px-3" : "px-6 sm:px-8 lg:px-10")}
+          viewportRef={messagesViewportRef}
+          onViewportScroll={updateScrollPosition}
+          viewportClassName="min-w-0 max-w-full [&>div]:!block [&>div]:w-full [&>div]:min-w-0 [&>div]:max-w-full"
+        >
+          <div className={cn("flex min-h-full min-w-0 w-full max-w-full flex-col justify-end gap-4 overflow-x-hidden", compact ? "py-4" : "py-5")}>
             {conversationQuery.isLoading ? (
               <p className="text-center text-sm text-muted-foreground">Loading conversation…</p>
             ) : conversationQuery.isError ? (
@@ -347,21 +493,31 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
               messages.map((message, index) => (
                 <ChatMessage
                   key={message.id}
+                  messageId={message.id}
+                  compact={compact}
                   role={message.role}
                   content={message.content}
                   chartPayload={message.chart_payload}
+                  pendingAction={message.pending_action}
                   suggestedReplies={
-                    hiddenSuggestedReplyMessageIds.has(message.id) ? [] : message.suggested_replies
+                    hiddenSuggestedReplyMessageIds.has(message.id)
+                      ? EMPTY_SUGGESTED_REPLIES
+                      : message.suggested_replies
                   }
-                  onSuggestedReply={(reply) => selectSuggestedReply(message.id, reply)}
+                  onSuggestedReply={selectSuggestedReply}
                   suggestionsDisabled={isBusy}
+                  pendingActionError={pendingActionError}
+                  pendingActionBusy={isResolvingPendingAction}
+                  onConfirmPendingAction={confirmPendingActionInChat}
+                  onCancelPendingAction={cancelPendingActionInChat}
                   animationDelay={Math.min(index, 8) * 35}
                 />
               ))
             )}
-            {pendingMessage ? <ChatMessage role="user" content={pendingMessage} /> : null}
+            {pendingMessage ? <ChatMessage compact={compact} role="user" content={pendingMessage} /> : null}
             {failedMessage ? (
               <ChatMessage
+                compact={compact}
                 role="user"
                 content={failedMessage.content}
                 errorMessage={failedMessage.error.message}
@@ -370,11 +526,22 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
               />
             ) : null}
             {isBusy ? <p className="text-sm text-muted-foreground">Assistant is thinking…</p> : null}
-            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 
-        <div className="shrink-0 border-t border-border/50 p-4">
+        {hasNewMessagesBelow ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="absolute bottom-20 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border/70 shadow-lg"
+            onClick={() => scrollToBottom("smooth")}
+          >
+            <ArrowDown className="size-3.5" /> New message
+          </Button>
+        ) : null}
+
+        <div className={cn("shrink-0 border-t border-border/50", compact ? "p-2.5" : "p-4")}>
           <form onSubmit={submitMessage} className="flex gap-2">
             <input
               value={draft}
@@ -395,26 +562,40 @@ export function AssistantChat({ showHistory = false, compact = false }: Assistan
   );
 }
 
-function ChatMessage({
+const ChatMessage = React.memo(function ChatMessage({
+  messageId,
+  compact = false,
   role,
   content,
   suggestedReplies = [],
   chartPayload,
+  pendingAction,
   errorMessage,
   onSuggestedReply,
   onRetry,
   suggestionsDisabled = false,
+  pendingActionError,
+  pendingActionBusy = false,
+  onConfirmPendingAction,
+  onCancelPendingAction,
   retryDisabled = false,
   animationDelay = 0,
 }: {
+  messageId?: string;
+  compact?: boolean;
   role: "user" | "assistant";
   content: string;
   suggestedReplies?: string[];
   chartPayload?: AssistantConversationResponse["messages"][number]["chart_payload"];
+  pendingAction?: AssistantConversationResponse["messages"][number]["pending_action"];
   errorMessage?: string;
-  onSuggestedReply?: (reply: string) => void;
+  onSuggestedReply?: (messageId: string, reply: string) => void;
   onRetry?: () => void;
   suggestionsDisabled?: boolean;
+  pendingActionError?: string;
+  pendingActionBusy?: boolean;
+  onConfirmPendingAction?: (actionId: string) => void;
+  onCancelPendingAction?: (actionId: string) => void;
   retryDisabled?: boolean;
   animationDelay?: number;
 }) {
@@ -424,12 +605,19 @@ function ChatMessage({
       className={cn("assistant-message-in flex", isUser && "justify-end")}
       style={{ animationDelay: `${animationDelay}ms` }}
     >
-      <div className="min-w-0 max-w-[85%]">
+      <div
+        className={cn(
+          "min-w-0",
+          compact ? "max-w-[76%]" : "max-w-[85%]",
+          !isUser && (compact ? "max-w-[88%]" : "max-w-full"),
+          isUser && !compact && "sm:max-w-[85%]",
+        )}
+      >
         <div
           className={cn(
-            "text-sm leading-6",
+            "break-words text-sm leading-6",
             isUser
-              ? "whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3 py-2 text-primary-foreground"
+              ? "whitespace-pre-wrap [overflow-wrap:anywhere] rounded-2xl rounded-tr-sm bg-primary px-3 py-2 text-primary-foreground"
               : "py-1 text-foreground",
           )}
         >
@@ -450,8 +638,17 @@ function ChatMessage({
             </Button>
           </div>
         ) : null}
+        {!isUser && pendingAction ? (
+          <PendingActionCard
+            action={pendingAction}
+            errorMessage={pendingActionError}
+            disabled={pendingActionBusy}
+            onConfirm={onConfirmPendingAction}
+            onCancel={onCancelPendingAction}
+          />
+        ) : null}
         {!isUser && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
-        {!isUser && suggestedReplies.length === 3 && onSuggestedReply ? (
+        {!isUser && messageId && suggestedReplies.length === 3 && onSuggestedReply ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {suggestedReplies.map((reply) => (
               <Button
@@ -460,8 +657,8 @@ function ChatMessage({
                 variant="outline"
                 size="sm"
                 disabled={suggestionsDisabled}
-                className="h-auto min-h-8 whitespace-normal rounded-full px-3 py-1.5 text-left text-xs leading-4"
-                onClick={() => onSuggestedReply(reply)}
+                className="h-auto min-h-8 max-w-full whitespace-normal rounded-full px-3 py-1.5 text-left text-xs leading-4"
+                onClick={() => onSuggestedReply(messageId, reply)}
               >
                 {reply}
               </Button>
@@ -469,6 +666,45 @@ function ChatMessage({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+});
+
+function PendingActionCard({
+  action,
+  errorMessage,
+  disabled,
+  onConfirm,
+  onCancel,
+}: {
+  action: NonNullable<AssistantConversationResponse["messages"][number]["pending_action"]>;
+  errorMessage?: string;
+  disabled: boolean;
+  onConfirm?: (actionId: string) => void;
+  onCancel?: (actionId: string) => void;
+}) {
+  const isPending = action.status === "pending";
+  return (
+    <div className="mt-3 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
+      <p className="font-medium">{action.summary.title}</p>
+      <ul className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
+        {action.summary.details.map((detail) => <li key={detail}>{detail}</li>)}
+      </ul>
+      {isPending ? (
+        <>
+          {errorMessage ? <p role="alert" className="mt-2 text-xs text-destructive">{errorMessage}</p> : null}
+          <div className="mt-3 flex gap-2">
+            <Button type="button" size="sm" disabled={disabled} onClick={() => onConfirm?.(action.id)}>
+              <Check className="size-3.5" /> Confirm
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onCancel?.(action.id)}>
+              <X className="size-3.5" /> Cancel
+            </Button>
+          </div>
+        </>
+      ) : (
+        <p className="mt-3 text-xs text-muted-foreground">{action.status === "confirmed" ? "Confirmed" : action.status === "cancelled" ? "Cancelled" : "Expired"}</p>
+      )}
     </div>
   );
 }
@@ -491,7 +727,7 @@ function AssistantMarkdown({ content }: { content: string }) {
             {children}
           </a>
         ),
-        p: ({ children }) => <p className="mt-3 first:mt-0">{children}</p>,
+        p: ({ children }) => <p className="mt-3 max-w-full break-words first:mt-0">{children}</p>,
         ul: ({ children }) => <ul className="my-2 list-disc space-y-1 pl-5">{children}</ul>,
         ol: ({ children }) => <ol className="my-2 list-decimal space-y-1 pl-5">{children}</ol>,
         li: ({ children }) => <li>{children}</li>,
@@ -506,7 +742,7 @@ function AssistantMarkdown({ content }: { content: string }) {
               "font-mono text-[0.85em]",
               className
                 ? "text-inherit"
-                : "rounded-md border border-border/60 bg-muted px-1.5 py-0.5 text-foreground",
+                : "break-all rounded-md border border-border/60 bg-muted px-1.5 py-0.5 text-foreground",
             )}
           >
             {children}

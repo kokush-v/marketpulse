@@ -68,6 +68,7 @@ class AssistantMessage(Base):
         server_default="[]",
     )
     chart_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    pending_action: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     tool_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tool_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -79,11 +80,12 @@ class AssistantPendingAction(Base):
     __tablename__ = "assistant_pending_actions"
     __table_args__ = (
         CheckConstraint(
-            "action_type IN ('delete_alert', 'remove_watchlist_asset')",
+            "action_type IN ('add_watchlist_asset', 'remove_watchlist_asset', "
+            "'create_alert', 'update_alert', 'pause_alert', 'resume_alert', 'delete_alert')",
             name="ck_assistant_pending_actions_type",
         ),
         CheckConstraint(
-            "status IN ('pending', 'confirmed', 'cancelled', 'expired')",
+            "status IN ('pending', 'executing', 'confirmed', 'cancelled', 'expired')",
             name="ck_assistant_pending_actions_status",
         ),
     )
@@ -104,6 +106,13 @@ class AssistantPendingAction(Base):
     action_type: Mapped[str] = mapped_column(String(64), nullable=False)
     target_id: Mapped[str] = mapped_column(String(120), nullable=False)
     validated_input: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    display_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("assistant_messages.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="pending")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

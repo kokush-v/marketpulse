@@ -4,9 +4,7 @@ import { AuthGuard } from "@/shared/components/auth-guard";
 
 const mockReplace = jest.fn();
 const mockUsePathname = jest.fn();
-const mockGetAccessToken = jest.fn();
-const mockGetSessionEventName = jest.fn();
-const mockOnAuthStateChange = jest.fn();
+const mockUseSupabaseSession = jest.fn();
 
 jest.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
@@ -15,42 +13,25 @@ jest.mock("next/navigation", () => ({
   }),
 }));
 
-jest.mock("@/shared/lib/auth", () => ({
-  getAccessToken: () => mockGetAccessToken(),
-  getSessionEventName: () => mockGetSessionEventName(),
-}));
-
-jest.mock("@/shared/lib/supabase", () => ({
-  SupabaseBrowserClient: {
-    getInstance: () => ({
-      auth: {
-        onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
-      },
-    }),
-  },
+jest.mock("@/shared/hooks/use-supabase-session", () => ({
+  useSupabaseSession: () => mockUseSupabaseSession(),
 }));
 
 describe("AuthGuard", () => {
   beforeEach(() => {
     mockReplace.mockReset();
     mockUsePathname.mockReset();
-    mockGetAccessToken.mockReset();
-    mockGetSessionEventName.mockReset();
-    mockOnAuthStateChange.mockReset();
+    mockUseSupabaseSession.mockReset();
 
     mockUsePathname.mockReturnValue("/alerts");
-    mockGetSessionEventName.mockReturnValue("marketpulse:session-changed");
-    mockOnAuthStateChange.mockReturnValue({
-      data: {
-        subscription: {
-          unsubscribe: jest.fn(),
-        },
-      },
-    });
   });
 
-  it("renders protected content when an access token is present", async () => {
-    mockGetAccessToken.mockReturnValue("token");
+  it("renders protected content when Supabase has a session", async () => {
+    mockUseSupabaseSession.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      session: { access_token: "token" },
+    });
 
     render(
       <AuthGuard>
@@ -65,7 +46,11 @@ describe("AuthGuard", () => {
   });
 
   it("redirects unauthenticated users to sign-in with the current path", async () => {
-    mockGetAccessToken.mockReturnValue(null);
+    mockUseSupabaseSession.mockReturnValue({
+      isAuthenticated: false,
+      isLoading: false,
+      session: null,
+    });
 
     render(
       <AuthGuard>

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { syncUserAuthSyncUserPost } from "@/src/api/generated/auth/auth";
-import { saveSupabaseSession } from "@/shared/lib/auth";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 function AuthCallbackPageContent() {
@@ -39,7 +38,6 @@ function AuthCallbackPageContent() {
           throw new Error("Supabase session was not created");
         }
 
-        saveSupabaseSession(session);
         await syncUserAuthSyncUserPost({
           headers: {
             Authorization: `Bearer ${session.access_token}`,

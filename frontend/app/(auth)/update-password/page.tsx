@@ -11,8 +11,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
   clearSession,
-  getAccessToken,
-  getRefreshToken,
+  getCurrentSession,
   restoreRecoverySessionFromUrl,
 } from "@/shared/lib/auth";
 
@@ -52,9 +51,8 @@ export default function UpdatePasswordPage() {
     setError(null);
     setMessage(null);
 
-    const accessToken = getAccessToken();
-    const refreshToken = getRefreshToken();
-    if (!accessToken || !refreshToken) {
+    const session = await getCurrentSession();
+    if (!session?.access_token || !session.refresh_token) {
       setError("Missing active session");
       return;
     }
@@ -64,8 +62,8 @@ export default function UpdatePasswordPage() {
         { password },
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "X-Refresh-Token": refreshToken,
+            Authorization: `Bearer ${session.access_token}`,
+            "X-Refresh-Token": session.refresh_token,
           },
         }
       );

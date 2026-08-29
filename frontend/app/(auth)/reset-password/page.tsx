@@ -10,19 +10,20 @@ import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import { hasSession } from "@/shared/lib/auth";
+import { useSupabaseSession } from "@/shared/hooks/use-supabase-session";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated } = useSupabaseSession();
 
   useEffect(() => {
-    if (hasSession()) {
+    if (isAuthenticated) {
       router.replace("/dashboard");
     }
-  }, [router]);
+  }, [isAuthenticated, router]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

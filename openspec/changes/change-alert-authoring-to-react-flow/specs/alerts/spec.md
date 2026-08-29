@@ -1,22 +1,22 @@
 ## MODIFIED Requirements
 
 ### Requirement: Guide Alert Creation Through A Visible Fixed Node Graph
-The system SHALL guide alert creation and editing through a visible fixed node graph instead of a stepper.
+The system SHALL present alert creation and editing through a visible fixed node graph instead of a stepper, while allowing all alert fields to be edited without an ordered progression.
 
 #### Scenario: User moves through alert creation
 - **Given** an authenticated user is creating or editing an alert
 - **When** the flow renders
-- **Then** the system shows a visible guided sequence of alert-authoring stages on a fixed canvas
-- **And** the user advances through that sequence without facing one large undifferentiated form
+- **Then** the system shows all alert-authoring stages together on a fixed canvas
+- **And** the user may edit any available alert field without completing a prior stage
 
 #### Scenario: User reviews multiple stages at once
 - **Given** an authenticated user is creating or editing an alert
 - **When** the fixed node graph renders
 - **Then** the main authoring nodes remain visible together
-- **And** the user is not forced through a single active-step presentation
+- **And** the user is not forced through an active-step presentation or progressive unlocking
 
 ### Requirement: Use A Fixed Y-Shaped React Flow Canvas For Alert Authoring
-The system SHALL use a React Flow canvas organized as a fixed Y-shaped graph of compact authoring nodes for alert create and edit flows, and SHALL NOT require a dedicated preview node.
+The system SHALL use a React Flow canvas organized as a fixed Y-shaped graph of equally sized authoring nodes for alert create and edit flows, and SHALL NOT require a dedicated preview node.
 
 #### Scenario: User opens alert creation
 - **Given** an authenticated user opens the create-alert flow
@@ -72,13 +72,38 @@ The system SHALL use the same alert-authoring canvas model on mobile and desktop
 - **And** the system does not switch to a separate stepper-based or stacked-only authoring mode
 
 ### Requirement: Keep The Main Authoring Nodes Persistently Visible
-The system SHALL keep the main authoring nodes persistently visible in the canvas and SHALL NOT rely on one node becoming active while the others collapse into inactive summaries.
+The system SHALL keep the main authoring nodes persistently visible and editable in the canvas, and SHALL NOT use an active-node state, progressive unlocking, or state-driven node expansion.
 
 #### Scenario: User edits one part of the flow
 - **Given** an authenticated user is creating or editing an alert
 - **When** the user interacts with one authoring node
 - **Then** the other main authoring nodes remain visible in the canvas
-- **And** the node presentation does not depend on switching the rest of the graph into inactive collapsed states
+- **And** the node presentation does not depend on switching the rest of the graph into inactive, collapsed, or locked states
+
+### Requirement: Keep Alert Authoring Nodes Uniformly Sized
+The system SHALL render the coin, scenario, timing, and review/save nodes with the same defined outer dimensions.
+
+#### Scenario: User views the alert canvas
+- **Given** an authenticated user is creating or editing an alert
+- **When** the fixed node graph renders
+- **Then** every authoring node has the same outer width and height
+- **And** a node does not grow or shrink because of its active, completion, or configuration state
+
+### Requirement: Enable Saving Only For A Complete Valid Alert
+The system SHALL keep the alert save action unavailable until all required alert fields have valid values.
+
+#### Scenario: Required alert data is incomplete
+- **Given** an authenticated user is creating or editing an alert
+- **And** one or more required alert fields are missing or invalid
+- **When** the user views the review/save node
+- **Then** the save action is unavailable
+- **And** the system provides validation feedback for the incomplete or invalid data
+
+#### Scenario: Required alert data is valid
+- **Given** an authenticated user is creating or editing an alert
+- **And** every required alert field has a valid value
+- **When** the user views the review/save node
+- **Then** the save action is available
 
 ### Requirement: Use A Compact Watchlist-Only Coin Picker In The Coin Node
 The system SHALL render the coin-selection node as a compact watchlist-only picker with a combobox-style in-node search field and dropdown selection, and SHALL NOT require a separate inline add-to-watchlist panel inside the alert-authoring canvas.

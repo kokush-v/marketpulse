@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Separator } from "@/shared/components/ui/separator";
-import { applySession, hasSession } from "@/shared/lib/auth";
+import { applySession } from "@/shared/lib/auth";
+import { useSupabaseSession } from "@/shared/hooks/use-supabase-session";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 export default function SignUpPage() {
@@ -21,12 +22,13 @@ export default function SignUpPage() {
 	const [password, setPassword] = useState("");
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const { isAuthenticated } = useSupabaseSession();
 
 	useEffect(() => {
-		if (hasSession()) {
+		if (isAuthenticated) {
 			router.replace("/dashboard");
 		}
-	}, [router]);
+	}, [isAuthenticated, router]);
 
 	async function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();

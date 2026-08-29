@@ -6,6 +6,16 @@ from pydantic import BaseModel, Field
 
 AssistantMessageRole = Literal["user", "assistant"]
 AssistantChartPeriod = Literal["24h", "7d", "30d", "1y"]
+AssistantPendingActionType = Literal[
+    "add_watchlist_asset",
+    "remove_watchlist_asset",
+    "create_alert",
+    "update_alert",
+    "pause_alert",
+    "resume_alert",
+    "delete_alert",
+]
+AssistantPendingActionStatus = Literal["pending", "confirmed", "cancelled", "expired"]
 AssistantErrorCode = Literal[
     "assistant_not_configured",
     "assistant_configuration_error",
@@ -16,6 +26,8 @@ AssistantErrorCode = Literal[
     "conversation_not_found",
     "invalid_message",
     "invalid_conversation_title",
+    "pending_action_not_found",
+    "pending_action_resolved",
 ]
 
 
@@ -47,12 +59,25 @@ class AssistantChartPayloadResponse(BaseModel):
     series: list[AssistantChartSeriesResponse] = Field(min_length=1, max_length=5)
 
 
+class AssistantPendingActionSummaryResponse(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    details: list[str] = Field(min_length=1, max_length=8)
+
+
+class AssistantPendingActionResponse(BaseModel):
+    id: UUID
+    action_type: AssistantPendingActionType
+    status: AssistantPendingActionStatus
+    summary: AssistantPendingActionSummaryResponse
+
+
 class AssistantMessageResponse(BaseModel):
     id: UUID
     role: AssistantMessageRole
     content: str
     suggested_replies: list[str] = Field(default_factory=list)
     chart_payload: AssistantChartPayloadResponse | None = None
+    pending_action: AssistantPendingActionResponse | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -35,7 +35,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { useMeAuthMeGet } from "@/src/api/generated/auth/auth";
-import { SupabaseBrowserClient } from "@/shared/lib/supabase";
+import { clearSession } from "@/shared/lib/auth";
 
 const navGroups = [
 		{
@@ -122,10 +122,7 @@ function UserPanel() {
 
 	const handleLogout = async () => {
 		try {
-			const supabase = SupabaseBrowserClient.getInstance();
-			await supabase.auth.signOut();
-			localStorage.removeItem("mp_access_token");
-			localStorage.removeItem("mp_refresh_token");
+			await clearSession();
 			window.location.href = "/sign-in";
 		} catch (error) {
 			console.error("Failed to logout:", error);

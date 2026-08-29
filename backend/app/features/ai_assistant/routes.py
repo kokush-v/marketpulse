@@ -127,3 +127,37 @@ async def send_message(
         return await service.send_message(current_user, conversation_id, payload)
     except AssistantServiceError as error:
         return _service_error_response(error)
+
+
+@router.post(
+    "/conversations/{conversation_id}/pending-actions/{action_id}/confirm",
+    response_model=AssistantConversationResponse,
+    responses={404: {"model": AssistantErrorResponse}, 409: {"model": AssistantErrorResponse}},
+)
+async def confirm_pending_action(
+    conversation_id: UUID,
+    action_id: UUID,
+    current_user: Annotated[User, current_user_dependency],
+    service: Annotated[AssistantService, Depends()],
+) -> AssistantConversationResponse:
+    try:
+        return await service.confirm_pending_action(current_user, conversation_id, action_id)
+    except AssistantServiceError as error:
+        return _service_error_response(error)
+
+
+@router.post(
+    "/conversations/{conversation_id}/pending-actions/{action_id}/cancel",
+    response_model=AssistantConversationResponse,
+    responses={404: {"model": AssistantErrorResponse}, 409: {"model": AssistantErrorResponse}},
+)
+async def cancel_pending_action(
+    conversation_id: UUID,
+    action_id: UUID,
+    current_user: Annotated[User, current_user_dependency],
+    service: Annotated[AssistantService, Depends()],
+) -> AssistantConversationResponse:
+    try:
+        return await service.cancel_pending_action(current_user, conversation_id, action_id)
+    except AssistantServiceError as error:
+        return _service_error_response(error)

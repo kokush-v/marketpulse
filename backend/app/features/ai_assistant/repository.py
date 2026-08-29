@@ -1,9 +1,14 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.features.ai_assistant.models import AssistantConversation, AssistantMessage
+from app.features.ai_assistant.models import (
+    AssistantConversation,
+    AssistantMessage,
+    AssistantPendingAction,
+)
 
 
 class AssistantRepository:
@@ -81,6 +86,7 @@ class AssistantRepository:
         content: str,
         suggested_replies: list[str] | None = None,
         chart_payload: dict[str, object] | None = None,
+        pending_action: dict[str, object] | None = None,
         initial_title: str | None = None,
     ) -> AssistantMessage:
         await self.session.refresh(conversation, with_for_update=True)
@@ -97,6 +103,7 @@ class AssistantRepository:
             content=content,
             suggested_replies=suggested_replies or [],
             chart_payload=chart_payload,
+            pending_action=pending_action,
         )
         self.session.add(message)
         if role == "user" and last_sequence == -1 and conversation.title is None:
@@ -106,3 +113,147 @@ class AssistantRepository:
         await self.session.refresh(conversation)
         await self.session.refresh(message)
         return message
+
+    async def create_pending_action(
+        self,
+        *,
+        conversation: AssistantConversation,
+        user_id: uuid.UUID,
+        action_type: str,
+        target_id: str,
+        validated_input: dict[str, object],
+        display_summary: dict[str, object],
+        expires_at: datetime,
+    ) -> AssistantPendingAction:
+        existing_actions = list(
+            (
+                await self.session.execute(
+                    select(AssistantPendingAction)
+                    .where(
+                        AssistantPendingAction.conversation_id == conversation.id,
+                        AssistantPendingAction.user_id == user_id,
+                        AssistantPendingAction.status == "pending",
+                    )
+                    .with_for_update()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for existing_action in existing_actions:
+            existing_action.status = "cancelled"
+            existing_action.resolved_at = func.now()
+            await self._update_action_message_status(existing_action, "cancelled")
+        action = AssistantPendingAction(
+            conversation_id=conversation.id,
+            user_id=user_id,
+            action_type=action_type,
+            target_id=target_id,
+            validated_input=validated_input,
+            display_summary=display_summary,
+            expires_at=expires_at,
+        )
+        self.session.add(action)
+        await self.session.commit()
+        await self.session.refresh(action)
+        return action
+
+    async def link_pending_action_message(
+        self,
+        *,
+        action: AssistantPendingAction,
+        message: AssistantMessage,
+        pending_action: dict[str, object],
+    ) -> None:
+        action.message_id = message.id
+        message.pending_action = pending_action
+        await self.session.commit()
+
+    async def get_pending_action_for_user(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        action_id: uuid.UUID,
+    ) -> AssistantPendingAction | None:
+        result = await self.session.execute(
+            select(AssistantPendingAction).where(
+                AssistantPendingAction.id == action_id,
+                AssistantPendingAction.user_id == user_id,
+                AssistantPendingAction.conversation_id == conversation_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def claim_pending_action(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        action_id: uuid.UUID,
+    ) -> AssistantPendingAction | None:
+        result = await self.session.execute(
+            select(AssistantPendingAction)
+            .where(
+                AssistantPendingAction.id == action_id,
+                AssistantPendingAction.user_id == user_id,
+                AssistantPendingAction.conversation_id == conversation_id,
+            )
+            .with_for_update()
+        )
+        action = result.scalar_one_or_none()
+        if action is None:
+            return None
+        if action.status != "pending":
+            return action
+        if action.expires_at <= datetime.now(UTC):
+            action.status = "expired"
+            action.resolved_at = func.now()
+            await self._update_action_message_status(action, "expired")
+            await self.session.commit()
+            return action
+        action.status = "executing"
+        await self.session.commit()
+        return action
+
+    async def resolve_pending_action(
+        self,
+        *,
+        action: AssistantPendingAction,
+        status: str,
+    ) -> None:
+        action.status = status
+        action.resolved_at = func.now()
+        await self._update_action_message_status(action, status)
+        await self.session.commit()
+
+    async def cancel_pending_action(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        action_id: uuid.UUID,
+    ) -> AssistantPendingAction | None:
+        action = await self.claim_pending_action(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            action_id=action_id,
+        )
+        if action is None or action.status != "executing":
+            return action
+        await self.resolve_pending_action(action=action, status="cancelled")
+        return action
+
+    async def _update_action_message_status(
+        self,
+        action: AssistantPendingAction,
+        status: str,
+    ) -> None:
+        if action.message_id is None:
+            return
+        result = await self.session.execute(
+            select(AssistantMessage).where(AssistantMessage.id == action.message_id)
+        )
+        message = result.scalar_one_or_none()
+        if message is not None and message.pending_action is not None:
+            message.pending_action = {**message.pending_action, "status": status}

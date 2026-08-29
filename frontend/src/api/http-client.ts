@@ -1,4 +1,7 @@
-import { clearSession, getAccessToken } from "@/shared/lib/auth";
+import type { Session } from "@supabase/supabase-js";
+
+import { clearSession, getCurrentSession } from "@/shared/lib/auth";
+import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 type OrvalRequest = {
   url: string;
@@ -27,6 +30,37 @@ export class ApiRequestError extends Error {
   ) {
     super(message);
     this.name = "ApiRequestError";
+  }
+}
+
+let refreshSessionPromise: Promise<Session | null> | null = null;
+let clearSessionPromise: Promise<void> | null = null;
+
+async function refreshSession(): Promise<Session | null> {
+  if (!refreshSessionPromise) {
+    const supabase = SupabaseBrowserClient.getInstance();
+    refreshSessionPromise = supabase.auth
+      .refreshSession()
+      .then(({ data, error }) => (error ? null : data.session))
+      .catch(() => null)
+      .finally(() => {
+        refreshSessionPromise = null;
+      });
+  }
+
+  return refreshSessionPromise;
+}
+
+async function transitionToSignIn(): Promise<void> {
+  clearSessionPromise ??= clearSession().catch(() => undefined);
+  const pendingClear = clearSessionPromise;
+  await pendingClear;
+  if (clearSessionPromise === pendingClear) {
+    clearSessionPromise = null;
+  }
+
+  if (window.location.pathname !== "/sign-in") {
+    window.location.href = "/sign-in";
   }
 }
 
@@ -95,37 +129,49 @@ export async function customFetch<T>(
     typeof request === "string" ? options?.body : request.data !== undefined ? JSON.stringify(request.data) : options?.body;
   const resolvedParams = typeof request === "string" ? undefined : request.params;
   const targetUrl = appendQueryParams(resolveApiUrl(resolvedUrl), resolvedParams);
-  const accessToken = typeof window !== "undefined" ? getAccessToken() : null;
-  const headers = new Headers({
-    "Content-Type": "application/json",
-  });
+  const isBrowser = typeof window !== "undefined";
+  const session = isBrowser ? await getCurrentSession() : null;
 
-  if (accessToken) {
-    headers.set("Authorization", `Bearer ${accessToken}`);
-  }
+  const sendRequest = (accessToken: string | null): Promise<Response> => {
+    const headers = new Headers({
+      "Content-Type": "application/json",
+    });
 
-  for (const [key, value] of toDefinedHeaderEntries(requestHeaders)) {
-    headers.set(key, value);
-  }
-
-  for (const [key, value] of toDefinedHeaderEntries(options?.headers)) {
-    headers.set(key, value);
-  }
-
-  const response = await fetch(targetUrl, {
-    ...options,
-    method: resolvedMethod,
-    signal: resolvedSignal,
-    body: requestBody,
-    headers,
-  });
-
-  if (!response.ok) {
-    if (response.status === 401 && typeof window !== "undefined") {
-      await clearSession();
-      window.location.href = "/sign-in";
+    for (const [key, value] of toDefinedHeaderEntries(requestHeaders)) {
+      headers.set(key, value);
     }
 
+    for (const [key, value] of toDefinedHeaderEntries(options?.headers)) {
+      headers.set(key, value);
+    }
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
+
+    return fetch(targetUrl, {
+      ...options,
+      method: resolvedMethod,
+      signal: resolvedSignal,
+      body: requestBody,
+      headers,
+    });
+  };
+
+  let response = await sendRequest(session?.access_token ?? null);
+
+  if (response.status === 401 && isBrowser && session) {
+    const refreshedSession = await refreshSession();
+    if (refreshedSession?.access_token) {
+      response = await sendRequest(refreshedSession.access_token);
+    }
+
+    if (!refreshedSession?.access_token || response.status === 401) {
+      await transitionToSignIn();
+    }
+  }
+
+  if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
     let payload: ApiErrorPayload | undefined;
     try {

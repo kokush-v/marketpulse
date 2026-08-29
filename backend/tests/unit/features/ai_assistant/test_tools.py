@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 
-from app.features.ai_assistant.tools import ChartPayloadCapture, build_read_tools
+from app.features.ai_assistant.actions import PendingActionCapture
+from app.features.ai_assistant.schemas import AssistantPendingActionResponse
+from app.features.ai_assistant.tools import ChartPayloadCapture, ToolResult, build_read_tools
 from app.features.auth.models import User
 
 
@@ -122,7 +127,11 @@ async def test_read_tools_exclude_internal_identifiers_and_redundant_metadata() 
     watchlist = await tools["list_watchlist_assets"].ainvoke({})
     alerts = await tools["list_alerts"].ainvoke({})
 
-    assert overview["coin"] == {
+    assert isinstance(overview, ToolResult)
+    assert overview.status == "ok"
+    assert json.loads(str(overview))["data"]["coin"]["symbol"] == "BTC"
+    assert overview.data.coin is not None
+    assert overview.data.coin.model_dump() == {
         "symbol": "BTC",
         "name": "Bitcoin",
         "description": "A digital asset.",
@@ -130,16 +139,18 @@ async def test_read_tools_exclude_internal_identifiers_and_redundant_metadata() 
         "price_change_percentage_24h": 2.04,
         "market_cap_rank": 1,
     }
-    assert "query" not in news
-    assert watchlist["assets"] == [{"symbol": "BTC", "name": "Bitcoin"}]
-    assert alerts["alerts"] == [
-        {
-            "coin": "Bitcoin (BTC)",
-            "status": "active",
-            "rule": "Price above $100,000",
-            "schedule": "Always",
-        }
-    ]
+    assert news.status == "ok"
+    assert watchlist.data.model_dump() == {"assets": [{"symbol": "BTC", "name": "Bitcoin"}]}
+    assert alerts.data.model_dump() == {
+        "alerts": [
+            {
+                "coin": "Bitcoin (BTC)",
+                "status": "active",
+                "rule": "Price above $100,000",
+                "schedule": "Always",
+            }
+        ]
+    }
 
 
 @pytest.mark.asyncio
@@ -175,8 +186,9 @@ async def test_price_chart_tool_persists_safe_chart_payload_without_provider_ids
 
     result = await tools["get_price_chart_data"].ainvoke({"coins": ["BTC"]})
 
-    assert result["status"] == "ok"
-    assert result["chart_summary"]["series"] == [
+    assert isinstance(result, ToolResult)
+    assert result.status == "ok"
+    assert [series.model_dump() for series in result.data.series] == [
         {
             "symbol": "BTC",
             "name": "Bitcoin",
@@ -193,3 +205,104 @@ async def test_price_chart_tool_persists_safe_chart_payload_without_provider_ids
     assert capture.payload.period == "7d"
     assert capture.payload.series[0].symbol == "BTC"
     assert "asset_id" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_watchlist_proposal_is_compact_and_requires_confirmation() -> None:
+    asset = SimpleNamespace(
+        asset_id="bitcoin",
+        symbol="BTC",
+        name="Bitcoin",
+        image_url=None,
+    )
+    action = AssistantPendingActionResponse.model_validate(
+        {
+            "id": uuid4(),
+            "action_type": "add_watchlist_asset",
+            "status": "pending",
+            "summary": {
+                "title": "Add Bitcoin (BTC) to your watchlist",
+                "details": ["Asset: Bitcoin (BTC)"],
+            },
+        }
+    )
+    capture = PendingActionCapture()
+    action_service = SimpleNamespace(propose=AsyncMock(return_value=action))
+    watchlist_service = SimpleNamespace(
+        search_assets=lambda _query: _async(SimpleNamespace(items=[asset])),
+        get_watchlist=lambda _user: _async(SimpleNamespace(assets=[])),
+    )
+    tools = {
+        tool.name: tool
+        for tool in build_read_tools(
+            user=cast(User, SimpleNamespace(id=uuid4())),
+            market_data_service=cast(Any, SimpleNamespace()),
+            news_service=cast(Any, SimpleNamespace()),
+            watchlist_service=cast(Any, watchlist_service),
+            alert_service=cast(Any, SimpleNamespace()),
+            conversation=cast(Any, SimpleNamespace(id=uuid4())),
+            action_service=cast(Any, action_service),
+            pending_action_capture=capture,
+        )
+    }
+
+    result = await tools["propose_add_watchlist_asset"].ainvoke({"query": "BTC"})
+
+    assert result.status == "confirmation_required"
+    assert result.data.model_dump() == {
+        "action_type": "add_watchlist_asset",
+        "summary": {
+            "title": "Add Bitcoin (BTC) to your watchlist",
+            "details": ["Asset: Bitcoin (BTC)"],
+        },
+    }
+    assert capture.pending_action == action
+    action_service.propose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_watchlist_removal_requests_clarification_when_asset_is_not_saved() -> None:
+    watchlist_service = SimpleNamespace(
+        get_watchlist=lambda _user: _async(SimpleNamespace(assets=[])),
+    )
+    tools = {
+        tool.name: tool
+        for tool in build_read_tools(
+            user=cast(User, SimpleNamespace(id=uuid4())),
+            market_data_service=cast(Any, SimpleNamespace()),
+            news_service=cast(Any, SimpleNamespace()),
+            watchlist_service=cast(Any, watchlist_service),
+            alert_service=cast(Any, SimpleNamespace()),
+            conversation=cast(Any, SimpleNamespace(id=uuid4())),
+            action_service=cast(Any, SimpleNamespace()),
+        )
+    }
+
+    result = await tools["propose_remove_watchlist_asset"].ainvoke({"query": "BTC"})
+
+    assert result.status == "clarification_needed"
+    assert result.data.matches == []
+
+
+@pytest.mark.asyncio
+async def test_alert_proposal_requests_missing_required_fields() -> None:
+    tools = {
+        tool.name: tool
+        for tool in build_read_tools(
+            user=cast(User, SimpleNamespace(id=uuid4())),
+            market_data_service=cast(Any, SimpleNamespace()),
+            news_service=cast(Any, SimpleNamespace()),
+            watchlist_service=cast(Any, SimpleNamespace()),
+            alert_service=cast(Any, SimpleNamespace()),
+            conversation=cast(Any, SimpleNamespace(id=uuid4())),
+            action_service=cast(Any, SimpleNamespace()),
+        )
+    }
+
+    result = await tools["propose_create_alert"].ainvoke({"asset": "BTC"})
+
+    assert result.status == "clarification_needed"
+    assert result.data.model_dump() == {
+        "message": "Please provide the missing alert details.",
+        "missing_fields": ["scenario"],
+    }

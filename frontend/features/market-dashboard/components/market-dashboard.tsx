@@ -47,7 +47,7 @@ import { Separator } from "@/shared/components/ui/separator";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Spinner } from "@/shared/components/ui/spinner";
 import { SidebarInset, SidebarTrigger } from "@/shared/components/ui/sidebar";
-import { hasSession } from "@/shared/lib/auth";
+import { useSupabaseSession } from "@/shared/hooks/use-supabase-session";
 import { cn } from "@/shared/lib/utils";
 
 const TOP_ASSETS_PER_SLIDE = 6;
@@ -55,7 +55,7 @@ const TOP_ASSETS_PER_SLIDE = 6;
 export function MarketDashboard() {
 	const queryClient = useQueryClient();
 	const { data, isLoading, isError, error, refetch, isFetching } = useMarketOverview();
-	const isAuthenticated = typeof window !== "undefined" && hasSession();
+	const { isAuthenticated } = useSupabaseSession();
 	const watchlistQuery = useGetStarredWatchlistWatchlistsStarredGet(undefined, {
 		query: {
 			enabled: isAuthenticated,

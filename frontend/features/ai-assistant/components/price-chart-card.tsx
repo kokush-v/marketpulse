@@ -50,7 +50,7 @@ export function PriceChartCard({ chart }: PriceChartCardProps) {
       </div>
       <div className="h-60 min-w-0 sm:h-72">
         <ChartContainer config={chartConfig} className="h-full w-full">
-          <LineChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
             <CartesianGrid
               vertical={false}
               strokeDasharray="3 3"
@@ -66,10 +66,10 @@ export function PriceChartCard({ chart }: PriceChartCardProps) {
               tickFormatter={(value: string) => formatChartTime(value, chart.period)}
             />
             <YAxis
-              width={54}
+              width={88}
               axisLine={false}
               tickLine={false}
-              tickMargin={8}
+              tickMargin={10}
               tick={{ fontSize: 11 }}
               tickFormatter={formatPrice}
             />

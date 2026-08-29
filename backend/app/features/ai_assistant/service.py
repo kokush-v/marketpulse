@@ -18,6 +18,11 @@ from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
+from app.features.ai_assistant.actions import (
+    AssistantActionError,
+    AssistantActionService,
+    PendingActionCapture,
+)
 from app.features.ai_assistant.graph import (
     AssistantGraph,
     AssistantGraphConfigurationError,
@@ -37,11 +42,11 @@ from app.features.ai_assistant.schemas import (
     UpdateAssistantConversationRequest,
 )
 from app.features.ai_assistant.tools import ChartPayloadCapture, build_read_tools
-from app.features.alerts.service import AlertService
+from app.features.alerts.service import AlertService, AlertServiceError
 from app.features.auth.models import User
 from app.features.market_data.service import MarketDataService
 from app.features.news.service import NewsService
-from app.features.watchlists.service import WatchlistService
+from app.features.watchlists.service import WatchlistService, WatchlistServiceError
 
 
 class AssistantServiceError(Exception):
@@ -130,6 +135,79 @@ class AssistantService:
         conversation = await self._get_owned_conversation(user, conversation_id)
         await self.repository.delete_conversation(conversation=conversation)
 
+    async def confirm_pending_action(
+        self,
+        user: User,
+        conversation_id: UUID,
+        action_id: UUID,
+    ) -> AssistantConversationResponse:
+        conversation = await self._get_owned_conversation(user, conversation_id)
+        action_service = self._action_service()
+        try:
+            _, result_message = await action_service.confirm(
+                user=user,
+                conversation_id=conversation.id,
+                action_id=action_id,
+            )
+        except AssistantActionError as error:
+            raise AssistantServiceError(
+                status.HTTP_404_NOT_FOUND if error.not_found else status.HTTP_409_CONFLICT,
+                "pending_action_not_found" if error.not_found else "pending_action_resolved",
+                error.message,
+            ) from error
+        except (AlertServiceError, WatchlistServiceError) as error:
+            raise AssistantServiceError(
+                error.status_code,
+                "pending_action_resolved",
+                error.message,
+            ) from error
+
+        await self.repository.append_message(
+            conversation=conversation,
+            role="assistant",
+            content=result_message,
+            suggested_replies=[
+                "Show my watchlist.",
+                "List my alerts.",
+                "What can I do next?",
+            ],
+        )
+        messages = await self.repository.list_messages_for_conversation(conversation.id)
+        return self._conversation_response(conversation, messages)
+
+    async def cancel_pending_action(
+        self,
+        user: User,
+        conversation_id: UUID,
+        action_id: UUID,
+    ) -> AssistantConversationResponse:
+        conversation = await self._get_owned_conversation(user, conversation_id)
+        try:
+            await self._action_service().cancel(
+                user=user,
+                conversation_id=conversation.id,
+                action_id=action_id,
+            )
+        except AssistantActionError as error:
+            raise AssistantServiceError(
+                status.HTTP_404_NOT_FOUND if error.not_found else status.HTTP_409_CONFLICT,
+                "pending_action_not_found" if error.not_found else "pending_action_resolved",
+                error.message,
+            ) from error
+
+        await self.repository.append_message(
+            conversation=conversation,
+            role="assistant",
+            content="Cancelled the pending action.",
+            suggested_replies=[
+                "Show my watchlist.",
+                "List my alerts.",
+                "What can I do next?",
+            ],
+        )
+        messages = await self.repository.list_messages_for_conversation(conversation.id)
+        return self._conversation_response(conversation, messages)
+
     async def send_message(
         self,
         user: User,
@@ -146,14 +224,19 @@ class AssistantService:
             )
 
         messages = await self.repository.list_messages_for_conversation(conversation.id)
-        response = await self._get_graph_response(user, messages, pending_content=content)
+        response = await self._get_graph_response(
+            user,
+            messages,
+            conversation=conversation,
+            pending_content=content,
+        )
         await self.repository.append_message(
             conversation=conversation,
             role="user",
             content=content,
             initial_title=self._initial_title_from_message(content),
         )
-        await self.repository.append_message(
+        assistant_message = await self.repository.append_message(
             conversation=conversation,
             role="assistant",
             content=self._message_content(response.message),
@@ -163,7 +246,24 @@ class AssistantService:
                 if response.chart_payload is not None
                 else None
             ),
+            pending_action=(
+                response.pending_action.model_dump(mode="json")
+                if response.pending_action is not None
+                else None
+            ),
         )
+        if response.pending_action is not None:
+            action = await self.repository.get_pending_action_for_user(
+                user_id=user.id,
+                conversation_id=conversation.id,
+                action_id=response.pending_action.id,
+            )
+            if action is not None and action.status == "pending":
+                await self.repository.link_pending_action_message(
+                    action=action,
+                    message=assistant_message,
+                    pending_action=response.pending_action.model_dump(mode="json"),
+                )
         messages = await self.repository.list_messages_for_conversation(conversation.id)
         return self._conversation_response(conversation, messages)
 
@@ -188,12 +288,15 @@ class AssistantService:
         self,
         user: User,
         messages: list[AssistantMessage],
+        conversation: AssistantConversation | None = None,
         pending_content: str | None = None,
     ) -> AssistantGraphResponse:
         try:
             model = self._model or build_groq_model()
             self._model = model
             chart_payload_capture = ChartPayloadCapture()
+            pending_action_capture = PendingActionCapture()
+            action_service = self._action_service()
             graph = AssistantGraph(
                 model,
                 tools=build_read_tools(
@@ -202,9 +305,13 @@ class AssistantService:
                     news_service=self.news_service,
                     watchlist_service=self.watchlist_service,
                     alert_service=self.alert_service,
+                    conversation=conversation,
+                    action_service=action_service,
                     chart_payload_capture=chart_payload_capture,
+                    pending_action_capture=pending_action_capture,
                 ),
                 chart_payload_getter=lambda: chart_payload_capture.payload,
+                pending_action_getter=lambda: pending_action_capture.pending_action,
             )
             graph_messages = [
                 HumanMessage(content=message.content)
@@ -222,6 +329,7 @@ class AssistantService:
                 "assistant_not_configured",
                 "The AI assistant is not configured yet. Please try again later.",
             ) from error
+
         except RateLimitError as error:
             retry_after_seconds = self._retry_after_seconds(error)
             message = "The AI assistant is receiving too many requests."
@@ -289,6 +397,13 @@ class AssistantService:
                 "The AI assistant is temporarily unavailable. Please try again shortly.",
                 retryable=True,
             ) from error
+
+    def _action_service(self) -> AssistantActionService:
+        return AssistantActionService(
+            repository=self.repository,
+            watchlist_service=self.watchlist_service,
+            alert_service=self.alert_service,
+        )
 
     @staticmethod
     def _retry_after_seconds(error: RateLimitError) -> int | None:

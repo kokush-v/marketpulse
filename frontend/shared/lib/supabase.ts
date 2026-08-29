@@ -19,8 +19,10 @@ export class SupabaseBrowserClient {
 
     SupabaseBrowserClient.instance = createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
+        autoRefreshToken: true,
         detectSessionInUrl: false,
         flowType: "pkce",
+        persistSession: true,
       },
     });
 

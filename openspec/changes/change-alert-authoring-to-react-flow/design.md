@@ -1,6 +1,6 @@
 ## Overview
 
-This change is frontend-only, but it introduces an important interaction-model decision: React Flow SHALL be used as a fixed Y-shaped canvas organized around three authoring nodes feeding one central review/save node, not as an open-ended workflow editor.
+This change is frontend-only. React Flow SHALL be used as a fixed Y-shaped visual canvas organized around three authoring nodes feeding one central review/save node, not as an open-ended workflow editor or a staged wizard.
 
 The existing alert semantics remain unchanged. The canvas is only a presentation and interaction layer over the current authoring state.
 
@@ -14,7 +14,9 @@ The flow SHALL:
 - use code-defined edges only
 - prevent user-created connections and reconnections
 - not allow nodes to be dragged
-- keep the main authoring nodes visible together rather than swapping between active and inactive content states
+- keep all authoring nodes visible and editable together from the initial render
+- not use active, selected-stage, progressively unlocked, or completion-driven node presentation
+- give every node the same defined outer width and height
 - use smooth curved edge styling that reads as node-to-node flow rather than square handle-to-handle routing
 
 The flow SHALL NOT:
@@ -32,18 +34,18 @@ The authoring canvas should be modeled around stable stages that already exist i
 - timing
 - review and save
 
-The coin node should stay compact and rely on a watchlist-only combobox. The scenario node should combine scenario selection and scenario-specific configuration so users do not need to move into a separate configuration node after choosing a scenario. The timing node should preserve the current time-behavior model, but recurring date selection should open through a modal-style calendar interaction instead of rendering a full calendar inline inside the node. The central node should act as the convergence point for review and save rather than as an always-expanded preview.
+The coin node should rely on a watchlist-only combobox. The scenario node should combine scenario selection and scenario-specific configuration so users do not need to move into a separate configuration node after choosing a scenario. The timing node should preserve the current time-behavior model, but recurring date selection should open through a modal-style calendar interaction instead of rendering a full calendar inline inside the node. The central node should provide review and save rather than act as an always-expanded preview. All nodes use identical outer dimensions; controls and content must fit within that shared visual frame.
 
 ## Responsive Behavior
 
-Desktop and mobile SHALL use the same React Flow canvas concept. Responsive adaptation may change zoom defaults, viewport fit behavior, node sizing, and spacing, but it SHALL NOT replace the canvas with a separate stepper or stacked-only authoring mode.
+Desktop and mobile SHALL use the same React Flow canvas concept. Responsive adaptation may change zoom defaults, viewport fit behavior, and spacing, but it SHALL NOT make one node a different size from another or replace the canvas with a separate stepper or stacked-only authoring mode.
 The layout should remain fixed on both desktop and mobile-capable canvases so the Y-shaped structure stays recognizable.
 
 ## Validation And Orientation
 
-Because the stepper is removed, orientation must come from the canvas itself. The implementation should use node state to communicate:
+Because the stepper is removed, orientation must come from the complete form visible on the canvas. The implementation should use validation state to communicate:
 
 - validity and completeness
-- validation errors blocking save
+- validation errors and incomplete required fields blocking save
 
-The canvas should stay compact, with brief summaries inside nodes and the main editing controls embedded directly in the persistent visible nodes. Node styling may keep glow or outline accents, but orientation should not depend on one node switching into an "active" content mode while others collapse. Edge styling should visually approach the center of each node so connections feel soft and intentional rather than anchored to obvious square connection points.
+The canvas should keep the main editing controls embedded directly in the persistently visible nodes. Nodes use neutral styling and must not imply an active stage through glow, highlighting, or state-driven expansion. The save action is disabled until every required field has a valid value; it becomes available immediately once the complete alert definition is valid. Edge styling should visually approach the center of each node so connections feel soft and intentional rather than anchored to obvious square connection points.

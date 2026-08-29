@@ -4,9 +4,8 @@ import type { Session } from "@supabase/supabase-js";
 
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
-const ACCESS_TOKEN_KEY = "mp_access_token";
-const REFRESH_TOKEN_KEY = "mp_refresh_token";
-const SESSION_EVENT_NAME = "marketpulse:session-changed";
+const LEGACY_ACCESS_TOKEN_KEY = "mp_access_token";
+const LEGACY_REFRESH_TOKEN_KEY = "mp_refresh_token";
 
 export type SessionPayload = {
   access_token: string;
@@ -15,18 +14,13 @@ export type SessionPayload = {
   expires_in: number;
 };
 
-function persistSession(session: SessionPayload): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, session.access_token);
-  localStorage.setItem(REFRESH_TOKEN_KEY, session.refresh_token);
-  dispatchSessionEvent();
-}
-
-function dispatchSessionEvent(): void {
+export function clearLegacySessionStorage(): void {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.dispatchEvent(new Event(SESSION_EVENT_NAME));
+  localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
 }
 
 export async function applySession(session: SessionPayload): Promise<void> {
@@ -39,22 +33,11 @@ export async function applySession(session: SessionPayload): Promise<void> {
   if (error) {
     throw error;
   }
-
-  saveSupabaseSession(data.session);
-}
-
-export function saveSupabaseSession(session: Session | null): void {
-  if (!session?.access_token || !session.refresh_token) {
-    clearStoredSession();
-    return;
+  if (!data.session) {
+    throw new Error("Supabase did not establish a session");
   }
 
-  persistSession({
-    access_token: session.access_token,
-    refresh_token: session.refresh_token,
-    token_type: session.token_type,
-    expires_in: session.expires_in,
-  });
+  clearLegacySessionStorage();
 }
 
 export async function restoreRecoverySessionFromUrl(): Promise<boolean> {
@@ -71,10 +54,7 @@ export async function restoreRecoverySessionFromUrl(): Promise<boolean> {
       throw error;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    saveSupabaseSession(session);
+    clearLegacySessionStorage();
 
     window.history.replaceState({}, document.title, window.location.pathname);
     return true;
@@ -111,28 +91,28 @@ export async function clearSession(): Promise<void> {
   try {
     await supabase.auth.signOut();
   } finally {
-    clearStoredSession();
+    clearLegacySessionStorage();
   }
 }
 
-export function clearStoredSession(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  dispatchSessionEvent();
+export async function getCurrentSession(): Promise<Session | null> {
+  const supabase = SupabaseBrowserClient.getInstance();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    return null;
+  }
+
+  return session;
 }
 
-export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
+export async function getAccessToken(): Promise<string | null> {
+  return (await getCurrentSession())?.access_token ?? null;
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-}
-
-export function hasSession(): boolean {
-  return Boolean(getAccessToken());
-}
-
-export function getSessionEventName(): string {
-  return SESSION_EVENT_NAME;
+export async function hasSession(): Promise<boolean> {
+  return Boolean(await getCurrentSession());
 }

@@ -13,7 +13,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/sha
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Separator } from "@/shared/components/ui/separator";
-import { applySession, hasSession } from "@/shared/lib/auth";
+import { applySession } from "@/shared/lib/auth";
+import { useSupabaseSession } from "@/shared/hooks/use-supabase-session";
 import { SupabaseBrowserClient } from "@/shared/lib/supabase";
 
 function SignInPageContent() {
@@ -24,12 +25,13 @@ function SignInPageContent() {
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const { isAuthenticated } = useSupabaseSession();
 
 	useEffect(() => {
-		if (hasSession()) {
+		if (isAuthenticated) {
 			router.replace(next);
 		}
-	}, [next, router]);
+	}, [isAuthenticated, next, router]);
 
 	async function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();

@@ -1,68 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Spinner } from "@/shared/components/ui/spinner";
-import { getAccessToken, getSessionEventName } from "@/shared/lib/auth";
-import { SupabaseBrowserClient } from "@/shared/lib/supabase";
+import { useSupabaseSession } from "@/shared/hooks/use-supabase-session";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isChecking, setIsChecking] = useState(true);
+  const { isAuthenticated, isLoading } = useSupabaseSession();
 
   useEffect(() => {
-    const redirectToSignIn = () => {
+    if (!isLoading && !isAuthenticated) {
       router.replace(`/sign-in?next=${encodeURIComponent(pathname)}`);
-    };
+    }
+  }, [isAuthenticated, isLoading, pathname, router]);
 
-    const evaluateSession = () => {
-      const token = getAccessToken();
-      if (!token) {
-        setIsChecking(true);
-        redirectToSignIn();
-        return;
-      }
-
-      setIsChecking(false);
-    };
-
-    evaluateSession();
-
-    const supabase = SupabaseBrowserClient.getInstance();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session?.access_token) {
-        setIsChecking(true);
-        redirectToSignIn();
-        return;
-      }
-
-      setIsChecking(false);
-    });
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === null || event.key.startsWith("mp_")) {
-        evaluateSession();
-      }
-    };
-    const handleSessionEvent = () => {
-      evaluateSession();
-    };
-
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(getSessionEventName(), handleSessionEvent);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(getSessionEventName(), handleSessionEvent);
-    };
-  }, [pathname, router]);
-
-  if (isChecking) {
+  if (isLoading || !isAuthenticated) {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-background px-6">
         <div className="flex w-full max-w-sm flex-col items-center justify-center text-center">
