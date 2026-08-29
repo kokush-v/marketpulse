@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import re
 from typing import Annotated
 from uuid import UUID
 
@@ -14,7 +16,8 @@ from groq import (
     RateLimitError,
     UnprocessableEntityError,
 )
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -48,6 +51,8 @@ from app.features.market_data.service import MarketDataService
 from app.features.news.service import NewsService
 from app.features.watchlists.service import WatchlistService, WatchlistServiceError
 
+logger = logging.getLogger(__name__)
+
 
 class AssistantServiceError(Exception):
     def __init__(
@@ -68,6 +73,28 @@ class AssistantServiceError(Exception):
 
 
 class AssistantService:
+    _ACTION_OUTCOME_PROMPT = """You write the final user-facing response after a MarketPulse action
+has already completed. Respond naturally in the language used by the conversation. Briefly explain
+the verified outcome below. Do not mention tools, internal state, pending actions, confirmation
+mechanisms, or implementation details. Do not ask for confirmation and do not suggest or perform
+another operation."""
+    _CHAT_ACTION_DECISIONS = {
+        "yes": "confirm",
+        "yes confirm": "confirm",
+        "так": "confirm",
+        "так підтвердити": "confirm",
+        "no": "cancel",
+        "no cancel": "cancel",
+        "ні": "cancel",
+        "ні скасувати": "cancel",
+    }
+    _PENDING_ACTION_SUGGESTED_REPLIES = ["Yes, confirm", "No, cancel"]
+    _PENDING_ACTION_FOLLOW_UP_REPLIES = [
+        "Show my watchlist.",
+        "List my alerts.",
+        "What can I do next?",
+    ]
+
     def __init__(
         self,
         session: Annotated[AsyncSession, Depends(get_async_session)],
@@ -223,6 +250,21 @@ class AssistantService:
                 "Message must not be blank",
             )
 
+        action_decision = self._chat_action_decision(content)
+        if action_decision is not None:
+            pending_action = await self.repository.get_current_pending_action_for_user(
+                user_id=user.id,
+                conversation_id=conversation.id,
+            )
+            if pending_action is not None:
+                return await self._resolve_pending_action_from_chat(
+                    user=user,
+                    conversation=conversation,
+                    content=content,
+                    action_id=pending_action.id,
+                    decision=action_decision,
+                )
+
         messages = await self.repository.list_messages_for_conversation(conversation.id)
         response = await self._get_graph_response(
             user,
@@ -240,7 +282,11 @@ class AssistantService:
             conversation=conversation,
             role="assistant",
             content=self._message_content(response.message),
-            suggested_replies=response.suggested_replies,
+            suggested_replies=(
+                self._PENDING_ACTION_SUGGESTED_REPLIES
+                if response.pending_action is not None
+                else response.suggested_replies
+            ),
             chart_payload=(
                 response.chart_payload.model_dump(mode="json")
                 if response.chart_payload is not None
@@ -266,6 +312,83 @@ class AssistantService:
                 )
         messages = await self.repository.list_messages_for_conversation(conversation.id)
         return self._conversation_response(conversation, messages)
+
+    async def _resolve_pending_action_from_chat(
+        self,
+        *,
+        user: User,
+        conversation: AssistantConversation,
+        content: str,
+        action_id: UUID,
+        decision: str,
+    ) -> AssistantConversationResponse:
+        await self.repository.append_message(
+            conversation=conversation,
+            role="user",
+            content=content,
+        )
+
+        try:
+            if decision == "confirm":
+                _, result_message = await self._action_service().confirm(
+                    user=user,
+                    conversation_id=conversation.id,
+                    action_id=action_id,
+                )
+            else:
+                await self._action_service().cancel(
+                    user=user,
+                    conversation_id=conversation.id,
+                    action_id=action_id,
+                )
+                result_message = "Cancelled the pending action."
+        except (AssistantActionError, AlertServiceError, SQLAlchemyError, WatchlistServiceError):
+            result_message = (
+                "I couldn't complete that action. No changes were made. Please try again."
+            )
+
+        outcome_context = await self.repository.list_messages_for_conversation(conversation.id)
+        assistant_content = await self._generate_action_outcome_response(
+            messages=outcome_context,
+            verified_outcome=result_message,
+        )
+        await self.repository.append_message(
+            conversation=conversation,
+            role="assistant",
+            content=assistant_content,
+            suggested_replies=self._PENDING_ACTION_FOLLOW_UP_REPLIES,
+        )
+        messages = await self.repository.list_messages_for_conversation(conversation.id)
+        return self._conversation_response(conversation, messages)
+
+    async def _generate_action_outcome_response(
+        self,
+        *,
+        messages: list[AssistantMessage],
+        verified_outcome: str,
+    ) -> str:
+        try:
+            model = self._model or build_groq_model()
+            self._model = model
+            context = [
+                HumanMessage(content=message.content)
+                if message.role == "user"
+                else AIMessage(content=message.content)
+                for message in messages[-8:]
+                if message.role in {"user", "assistant"}
+            ]
+            response = await model.ainvoke(
+                [
+                    SystemMessage(content=self._ACTION_OUTCOME_PROMPT),
+                    *context,
+                    SystemMessage(content=f"Verified completed outcome: {verified_outcome}"),
+                ]
+            )
+            content = self._message_content(response)
+            return content or verified_outcome
+        except Exception:
+            logger.warning("Assistant action outcome response generation failed", exc_info=True)
+            return verified_outcome
 
     async def _get_owned_conversation(
         self,
@@ -404,6 +527,12 @@ class AssistantService:
             watchlist_service=self.watchlist_service,
             alert_service=self.alert_service,
         )
+
+    @classmethod
+    def _chat_action_decision(cls, content: str) -> str | None:
+        normalized = re.sub(r"[^\w\s]", " ", content.casefold())
+        normalized = " ".join(normalized.split())
+        return cls._CHAT_ACTION_DECISIONS.get(normalized)
 
     @staticmethod
     def _retry_after_seconds(error: RateLimitError) -> int | None:

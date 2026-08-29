@@ -88,6 +88,7 @@ class AlertRepository:
                 recurring_end_date=recurring_end_date,
                 scenario_payload=scenario_payload,
                 status="active",
+                arm_version=1,
             )
             .returning(AlertRule)
         )

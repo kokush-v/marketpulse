@@ -120,3 +120,34 @@ async def test_confirmation_does_not_disclose_or_execute_another_users_action() 
 
     assert caught.value.not_found is True
     watchlist_service.add_asset.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_confirmation_rolls_back_and_keeps_action_retryable_after_execution_failure() -> None:
+    action = pending_action()
+    action.status = "executing"
+    session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+    repository = SimpleNamespace(
+        claim_pending_action=AsyncMock(return_value=action),
+        get_pending_action_for_user=AsyncMock(return_value=action),
+        session=session,
+    )
+    watchlist_service = SimpleNamespace(
+        add_asset=AsyncMock(side_effect=RuntimeError("database failed"))
+    )
+    service = AssistantActionService(
+        repository=repository,
+        watchlist_service=watchlist_service,
+        alert_service=SimpleNamespace(),
+    )
+
+    with pytest.raises(RuntimeError, match="database failed"):
+        await service.confirm(
+            user=SimpleNamespace(id=uuid4()),
+            conversation_id=uuid4(),
+            action_id=action.id,
+        )
+
+    session.rollback.assert_awaited_once()
+    assert action.status == "pending"
+    session.commit.assert_awaited_once()

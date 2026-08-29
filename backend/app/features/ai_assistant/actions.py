@@ -75,8 +75,9 @@ class AssistantActionService:
         conversation_id: UUID,
         action_id: UUID,
     ) -> tuple[AssistantPendingActionResponse, str]:
+        user_id = user.id
         action = await self.repository.claim_pending_action(
-            user_id=user.id,
+            user_id=user_id,
             conversation_id=conversation_id,
             action_id=action_id,
         )
@@ -90,8 +91,15 @@ class AssistantActionService:
         try:
             result_message = await self._execute(user, action)
         except Exception:
-            action.status = "pending"
-            await self.repository.session.commit()
+            await self.repository.session.rollback()
+            recovered_action = await self.repository.get_pending_action_for_user(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                action_id=action_id,
+            )
+            if recovered_action is not None and recovered_action.status == "executing":
+                recovered_action.status = "pending"
+                await self.repository.session.commit()
             raise
 
         await self.repository.resolve_pending_action(action=action, status="confirmed")

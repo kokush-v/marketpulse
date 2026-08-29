@@ -185,6 +185,24 @@ class AssistantRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_current_pending_action_for_user(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+    ) -> AssistantPendingAction | None:
+        result = await self.session.execute(
+            select(AssistantPendingAction)
+            .where(
+                AssistantPendingAction.user_id == user_id,
+                AssistantPendingAction.conversation_id == conversation_id,
+                AssistantPendingAction.status == "pending",
+            )
+            .order_by(AssistantPendingAction.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def claim_pending_action(
         self,
         *,

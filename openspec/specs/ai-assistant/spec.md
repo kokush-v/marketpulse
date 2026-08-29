@@ -5,19 +5,40 @@ TBD - created by archiving change add-ai-assistant-chat. Update Purpose after ar
 ## Requirements
 ### Requirement: Provide A Protected Web Assistant Conversation
 
-The system SHALL provide authenticated users with a web AI assistant accessible through a product widget and a dedicated protected assistant page.
+The system SHALL provide authenticated users with a web AI assistant accessible through a product widget and a dedicated protected assistant page. When the widget opens without an active widget conversation, the system SHALL let the user start a new conversation or select one of that user's existing conversations before showing the chat interface.
 
 #### Scenario: Authenticated user opens the widget
 
 - **Given** an authenticated user is on a protected product screen
-- **When** the user opens the assistant widget
-- **Then** the system shows a chat interface for that user's conversation
+- **When** the user opens the assistant widget without an active widget conversation
+- **Then** the system shows a New conversation action and that user's existing conversations
+- **And** the system does not expose conversations owned by another user
 
 #### Scenario: Unauthenticated visitor requests the assistant page
 
 - **Given** a visitor without an authenticated session
 - **When** the visitor requests the assistant page
 - **Then** the system requires sign-in before granting access
+
+#### Scenario: User starts a new widget conversation
+
+- **Given** the widget conversation picker is visible
+- **When** the user selects New conversation
+- **Then** the system creates an owned conversation
+- **And** opens the standard widget chat for that conversation
+
+#### Scenario: User resumes a widget conversation
+
+- **Given** the widget conversation picker is visible
+- **When** the user selects one of the listed conversations
+- **Then** the system opens the standard widget chat with that conversation's recorded messages
+- **And** keeps that selection while the widget remains open
+
+#### Scenario: User has no prior widget conversations
+
+- **Given** the widget conversation picker is visible
+- **When** the user has no existing conversations
+- **Then** the system presents the New conversation action with a clear empty state
 
 ### Requirement: Preserve User-Owned Conversations
 
@@ -310,4 +331,19 @@ The system SHALL treat user requests to reveal protected instructions, alter sys
 - **When** the assistant responds
 - **Then** it clearly states that it cannot perform that action
 - **And** it does not claim access to unavailable systems or execute an unregistered action
+
+### Requirement: Preserve Typed Pending-Action Decisions In Conversation History
+
+The assistant SHALL preserve an authenticated user's typed or quick-reply decision for a pending mutation as an ordinary user message in the same conversation.
+
+#### Scenario: Quick reply is recorded as a chat message
+
+- **WHEN** a user chooses an affirmative or negative quick reply for a pending proposal
+- **THEN** the client sends it through the standard message-submission path
+- **AND** the conversation records it in the same way as manually entered text
+
+#### Scenario: Decision is visible after reopening a conversation
+
+- **WHEN** a user reopens a conversation after confirming or declining a pending proposal
+- **THEN** the user can see their decision and the assistant's resulting outcome in the message history
 

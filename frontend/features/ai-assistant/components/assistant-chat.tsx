@@ -10,8 +10,6 @@ import {
   getGetConversationAssistantConversationsConversationIdGetQueryKey,
   getListConversationsAssistantConversationsGetQueryKey,
   useCreateConversationAssistantConversationsPost,
-  useCancelPendingActionAssistantConversationsConversationIdPendingActionsActionIdCancelPost,
-  useConfirmPendingActionAssistantConversationsConversationIdPendingActionsActionIdConfirmPost,
   useDeleteConversationAssistantConversationsConversationIdDelete,
   useGetConversationAssistantConversationsConversationIdGet,
   useListConversationsAssistantConversationsGet,
@@ -29,6 +27,7 @@ import {
   ContextMenuTrigger,
 } from "@/shared/components/ui/context-menu";
 import { cn } from "@/shared/lib/utils";
+import { PendingActionCard } from "./pending-action-card";
 import { PriceChartCard } from "./price-chart-card";
 
 type AssistantChatProps = {
@@ -52,7 +51,6 @@ export function AssistantChat({
   const [activeConversationId, setActiveConversationIdState] = React.useState<string | undefined>(
     activeConversationMemory?.current,
   );
-  const [draft, setDraft] = React.useState("");
   const [pendingMessage, setPendingMessage] = React.useState<string>();
   const [failedMessage, setFailedMessage] = React.useState<FailedMessage>();
   const [historyError, setHistoryError] = React.useState<string>();
@@ -92,9 +90,6 @@ export function AssistantChat({
   const sendMessage = useSendMessageAssistantConversationsConversationIdMessagesPost();
   const updateConversationTitle = useUpdateConversationTitleAssistantConversationsConversationIdPatch();
   const deleteConversation = useDeleteConversationAssistantConversationsConversationIdDelete();
-  const confirmPendingAction = useConfirmPendingActionAssistantConversationsConversationIdPendingActionsActionIdConfirmPost();
-  const cancelPendingAction = useCancelPendingActionAssistantConversationsConversationIdPendingActionsActionIdCancelPost();
-  const [pendingActionError, setPendingActionError] = React.useState<string>();
 
   React.useEffect(() => {
     if (activeConversationId || !conversationsQuery.data?.items.length) {
@@ -129,7 +124,6 @@ export function AssistantChat({
       return;
     }
 
-    setDraft("");
     setFailedMessage(undefined);
     forceScrollToBottomRef.current = true;
     setPendingMessage(content);
@@ -166,42 +160,11 @@ export function AssistantChat({
     setConversation,
   ]);
 
-  const submitMessage = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    void sendContent(draft);
-  };
-
   const retryFailedMessage = React.useCallback(() => {
     if (failedMessage) {
       void sendContent(failedMessage.content);
     }
   }, [failedMessage, sendContent]);
-
-  const resolvePendingAction = React.useCallback(
-    async (actionId: string, operation: "confirm" | "cancel") => {
-      if (!activeConversationId) {
-        return;
-      }
-
-      try {
-        setPendingActionError(undefined);
-        const mutation = operation === "confirm" ? confirmPendingAction : cancelPendingAction;
-        const updatedConversation = await mutation.mutateAsync({
-          conversationId: activeConversationId,
-          actionId,
-        });
-        setConversation(updatedConversation);
-        await queryClient.invalidateQueries({
-          queryKey: getListConversationsAssistantConversationsGetQueryKey(),
-        });
-      } catch (error) {
-        setPendingActionError(
-          getErrorDetails(error, "We could not update that proposed action. Please try again.").message,
-        );
-      }
-    },
-    [activeConversationId, cancelPendingAction, confirmPendingAction, queryClient, setConversation],
-  );
 
   const selectSuggestedReply = React.useCallback(
     (messageId: string, reply: string) => {
@@ -213,15 +176,6 @@ export function AssistantChat({
       void sendContent(reply);
     },
     [sendContent],
-  );
-
-  const confirmPendingActionInChat = React.useCallback(
-    (actionId: string) => void resolvePendingAction(actionId, "confirm"),
-    [resolvePendingAction],
-  );
-  const cancelPendingActionInChat = React.useCallback(
-    (actionId: string) => void resolvePendingAction(actionId, "cancel"),
-    [resolvePendingAction],
   );
 
   const startRenaming = (conversationId: string, title: string | null | undefined) => {
@@ -282,7 +236,6 @@ export function AssistantChat({
   const conversation = conversationQuery.data;
   const messages = conversation?.messages ?? [];
   const isBusy = createConversation.isPending || sendMessage.isPending;
-  const isResolvingPendingAction = confirmPendingAction.isPending || cancelPendingAction.isPending;
   const renderedMessageCount = messages.length + (pendingMessage ? 1 : 0) + (failedMessage ? 1 : 0);
 
   activeConversationIdRef.current = activeConversationId;
@@ -506,10 +459,6 @@ export function AssistantChat({
                   }
                   onSuggestedReply={selectSuggestedReply}
                   suggestionsDisabled={isBusy}
-                  pendingActionError={pendingActionError}
-                  pendingActionBusy={isResolvingPendingAction}
-                  onConfirmPendingAction={confirmPendingActionInChat}
-                  onCancelPendingAction={cancelPendingActionInChat}
                   animationDelay={Math.min(index, 8) * 35}
                 />
               ))
@@ -541,28 +490,55 @@ export function AssistantChat({
           </Button>
         ) : null}
 
-        <div className={cn("shrink-0 border-t border-border/50", compact ? "p-2.5" : "p-4")}>
-          <form onSubmit={submitMessage} className="flex gap-2">
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Ask about a coin…"
-              maxLength={4000}
-              disabled={isBusy}
-              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Message the assistant"
-            />
-            <Button type="submit" size="icon" disabled={isBusy || !draft.trim()} aria-label="Send message">
-              <Send className="size-4" />
-            </Button>
-          </form>
-        </div>
+        <AssistantComposer compact={compact} isBusy={isBusy} onSend={sendContent} />
       </section>
     </div>
   );
 }
 
-const ChatMessage = React.memo(function ChatMessage({
+const AssistantComposer = React.memo(function AssistantComposer({
+  compact,
+  isBusy,
+  onSend,
+}: {
+  compact: boolean;
+  isBusy: boolean;
+  onSend: (content: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = React.useState("");
+
+  const submitMessage = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = draft.trim();
+    if (!content || isBusy) {
+      return;
+    }
+
+    setDraft("");
+    void onSend(content);
+  };
+
+  return (
+    <div className={cn("shrink-0 border-t border-border/50", compact ? "p-2.5" : "p-4")}>
+      <form onSubmit={submitMessage} className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Ask about a coin…"
+          maxLength={4000}
+          disabled={isBusy}
+          className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Message the assistant"
+        />
+        <Button type="submit" size="icon" disabled={isBusy || !draft.trim()} aria-label="Send message">
+          <Send className="size-4" />
+        </Button>
+      </form>
+    </div>
+  );
+});
+
+export const ChatMessage = React.memo(function ChatMessage({
   messageId,
   compact = false,
   role,
@@ -574,10 +550,6 @@ const ChatMessage = React.memo(function ChatMessage({
   onSuggestedReply,
   onRetry,
   suggestionsDisabled = false,
-  pendingActionError,
-  pendingActionBusy = false,
-  onConfirmPendingAction,
-  onCancelPendingAction,
   retryDisabled = false,
   animationDelay = 0,
 }: {
@@ -592,10 +564,6 @@ const ChatMessage = React.memo(function ChatMessage({
   onSuggestedReply?: (messageId: string, reply: string) => void;
   onRetry?: () => void;
   suggestionsDisabled?: boolean;
-  pendingActionError?: string;
-  pendingActionBusy?: boolean;
-  onConfirmPendingAction?: (actionId: string) => void;
-  onCancelPendingAction?: (actionId: string) => void;
   retryDisabled?: boolean;
   animationDelay?: number;
 }) {
@@ -641,14 +609,10 @@ const ChatMessage = React.memo(function ChatMessage({
         {!isUser && pendingAction ? (
           <PendingActionCard
             action={pendingAction}
-            errorMessage={pendingActionError}
-            disabled={pendingActionBusy}
-            onConfirm={onConfirmPendingAction}
-            onCancel={onCancelPendingAction}
           />
         ) : null}
         {!isUser && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
-        {!isUser && messageId && suggestedReplies.length === 3 && onSuggestedReply ? (
+        {!isUser && messageId && suggestedReplies.length > 0 && onSuggestedReply ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {suggestedReplies.map((reply) => (
               <Button
@@ -669,45 +633,6 @@ const ChatMessage = React.memo(function ChatMessage({
     </div>
   );
 });
-
-function PendingActionCard({
-  action,
-  errorMessage,
-  disabled,
-  onConfirm,
-  onCancel,
-}: {
-  action: NonNullable<AssistantConversationResponse["messages"][number]["pending_action"]>;
-  errorMessage?: string;
-  disabled: boolean;
-  onConfirm?: (actionId: string) => void;
-  onCancel?: (actionId: string) => void;
-}) {
-  const isPending = action.status === "pending";
-  return (
-    <div className="mt-3 rounded-xl border border-border/70 bg-muted/30 p-3 text-sm">
-      <p className="font-medium">{action.summary.title}</p>
-      <ul className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
-        {action.summary.details.map((detail) => <li key={detail}>{detail}</li>)}
-      </ul>
-      {isPending ? (
-        <>
-          {errorMessage ? <p role="alert" className="mt-2 text-xs text-destructive">{errorMessage}</p> : null}
-          <div className="mt-3 flex gap-2">
-            <Button type="button" size="sm" disabled={disabled} onClick={() => onConfirm?.(action.id)}>
-              <Check className="size-3.5" /> Confirm
-            </Button>
-            <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onCancel?.(action.id)}>
-              <X className="size-3.5" /> Cancel
-            </Button>
-          </div>
-        </>
-      ) : (
-        <p className="mt-3 text-xs text-muted-foreground">{action.status === "confirmed" ? "Confirmed" : action.status === "cancelled" ? "Cancelled" : "Expired"}</p>
-      )}
-    </div>
-  );
-}
 
 function AssistantMarkdown({ content }: { content: string }) {
   return (
