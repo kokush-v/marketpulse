@@ -110,7 +110,7 @@ Why this change is needed.
 
 # Output
 
-If Linear MCP tools are available:
+If Linear tools are available:
 
 - Create the Linear issue.
 - Return the issue identifier and link.
@@ -123,3 +123,5 @@ If Linear tools are not available:
 # Next Step
 
 After the Linear issue is created from a valid OpenSpec change, the next skill in the default delivery flow is `implement-spec`.
+
+Use `implement-spec` to validate the same change again, follow `tasks.md` in order, implement only approved scope, and update tests together with the code.

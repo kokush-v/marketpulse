@@ -39,6 +39,27 @@ type AssistantChatProps = {
 
 const EMPTY_SUGGESTED_REPLIES: string[] = [];
 
+export function getSuggestedReplyVisibleMessageIds(
+  messages: AssistantConversationResponse["messages"],
+): Set<string> {
+  const visibleMessageIds = new Set<string>();
+  let hasLaterUserMessage = false;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === "user") {
+      hasLaterUserMessage = true;
+      continue;
+    }
+
+    if (!hasLaterUserMessage && message.suggested_replies?.length) {
+      visibleMessageIds.add(message.id);
+    }
+  }
+
+  return visibleMessageIds;
+}
+
 export function AssistantChat({
   showHistory = false,
   compact = false,
@@ -235,6 +256,10 @@ export function AssistantChat({
 
   const conversation = conversationQuery.data;
   const messages = conversation?.messages ?? [];
+  const visibleSuggestedReplyMessageIds = React.useMemo(
+    () => getSuggestedReplyVisibleMessageIds(messages),
+    [messages],
+  );
   const isBusy = createConversation.isPending || sendMessage.isPending;
   const renderedMessageCount = messages.length + (pendingMessage ? 1 : 0) + (failedMessage ? 1 : 0);
 
@@ -453,7 +478,7 @@ export function AssistantChat({
                   chartPayload={message.chart_payload}
                   pendingAction={message.pending_action}
                   suggestedReplies={
-                    hiddenSuggestedReplyMessageIds.has(message.id)
+                    hiddenSuggestedReplyMessageIds.has(message.id) || !visibleSuggestedReplyMessageIds.has(message.id)
                       ? EMPTY_SUGGESTED_REPLIES
                       : message.suggested_replies
                   }

@@ -23,13 +23,13 @@ Before creating or updating a change, read:
 
 If the user request is short, vague, or missing important scope details, do not create the OpenSpec change immediately.
 
-Use the `ask_user` tool to ask focused clarification questions one at a time.
+First ask focused clarification questions.
 
 Ask only questions that affect scope, behavior, architecture, security, data model, or testing.
 
 Do not ask unnecessary questions about implementation details that can be decided later in `design.md`.
 
-Prefer 3 to 7 questions total.
+Prefer 3 to 7 questions.
 
 Group questions by topic when useful:
 
@@ -135,7 +135,9 @@ Spec delta files must:
 - Include frontend tasks when UI behavior changes.
 - Include database/migration tasks when schema changes.
 - Include integration tasks when external APIs are involved.
-- Include tests.
+- Include backend or integration test tasks when they are relevant to the change.
+- Do not add frontend automated test tasks by default.
+- Add frontend test tasks only when the user explicitly asks for them or when frontend test coverage is a core scope item of the change itself.
 - Include OpenAPI/Orval regeneration tasks when API contracts change.
 - Include validation commands where relevant.
 
@@ -147,8 +149,10 @@ Spec delta files must:
 - Do not invent requirements.
 - Do not expand scope beyond the user request.
 - Do not create large multi-domain changes unless explicitly required.
-- Use `ask_user` to clarify scope rather than guessing.
+- If requirements are unclear, ask for clarification.
 
 # Next Step
 
 After this skill produces a valid OpenSpec change, the next skill in the default delivery flow is `create-linear-task`.
+
+Use `create-linear-task` to turn the approved change into a focused Linear issue with acceptance criteria, validation steps, and links back to `openspec/changes/<change-id>/`.

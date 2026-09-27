@@ -139,22 +139,9 @@ If no template exists, use:
 
 - Specific files or behavior that deserve attention
 
-# Output
+# Suggested Checks
 
-Use the `gh` CLI or GitHub MCP tools to create the PR directly when available.
-
-Always include the following Co-authored-by trailer in the commit message and PR if Copilot authored or co-authored the change:
-
-```text
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-```
-
-If GitHub tools are not available:
-
-- Output the PR title and body in Markdown.
-- State that the body should be pasted into GitHub manually.
-
-# Suggested Checks Before Opening PR
+Run relevant checks before creating the PR.
 
 OpenSpec:
 
@@ -178,6 +165,18 @@ npm run typecheck
 npm run test
 ```
 
+# Output
+
+If GitHub tools are available:
+
+- Create the PR.
+- Return the PR link.
+
+If GitHub tools are not available:
+
+- Output the PR title and body in Markdown.
+- State that the body should be pasted into GitHub manually.
+
 # Constraints
 
 - Do not expand scope.
@@ -189,6 +188,6 @@ npm run test
 
 This is the final skill in the default delivery flow:
 
-`create-spec` → `create-linear-task` → `implement-spec` → `test-spec` → `create-pr`
+`create-spec` -> `create-linear-task` -> `implement-spec` -> `test-spec` -> `create-pr`
 
 After the PR is created, start a new cycle with `create-spec` only when a new product or technical change needs to be proposed.

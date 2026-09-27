@@ -7,7 +7,7 @@ description: Use when verifying an implemented OpenSpec change. Compares impleme
 
 Verify that an implemented OpenSpec change matches its approved specification and task list.
 
-This skill is for testing, review, and gap detection. It may make small test fixes if explicitly asked, but it must not add new feature scope.
+This skill is for testing, review, and gap detection. It may make small test fixes if explicitly asked, but it should not add new feature scope.
 
 # Required Reading
 
@@ -142,8 +142,10 @@ Anything important for reviewers.
 - Do not expand scope.
 - Do not perform large refactoring.
 - Do not claim checks passed unless they were actually run.
-- If checks cannot be run, state why clearly.
+- If checks cannot be run, state why.
 
 # Next Step
 
 After the implementation passes validation or the remaining gaps are resolved, the next skill in the default delivery flow is `create-pr`.
+
+Use `create-pr` to prepare a focused pull request linked to the OpenSpec change and Linear issue, with a truthful summary of checks, risks, and reviewer notes.

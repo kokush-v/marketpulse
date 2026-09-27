@@ -23,7 +23,7 @@ Validate first:
 openspec validate <change-id> --strict
 ```
 
-Do not continue if validation fails. Fix the spec or ask for clarification.
+Do not continue if validation fails.
 
 # Required Reading
 
@@ -43,14 +43,13 @@ Then inspect only directly relevant application files.
 
 1. Validate the OpenSpec change.
 2. Read the approved change files.
-3. Summarize implementation assumptions to the user before writing code.
-4. Use `ask_user` if any assumption could meaningfully affect scope or behavior.
-5. Follow `tasks.md` in order.
-6. Implement only the approved scope.
-7. Add or update tests with the implementation.
-8. Track progress in the SQL todos table when the task spans multiple steps.
-9. Run relevant checks.
-10. Validate OpenSpec again:
+3. Summarize the implementation assumptions.
+4. Follow `tasks.md` in order.
+5. Implement only the approved scope.
+6. Add or update tests with the implementation.
+7. Update `tasks.md` only after related code and tests are complete.
+8. Run relevant checks.
+9. Validate OpenSpec again:
 
 ```bash
 openspec validate <change-id> --strict
@@ -67,7 +66,6 @@ openspec validate <change-id> --strict
 - Put non-trivial database queries in `repository.py`.
 - Put Pydantic request and response schemas in `schemas.py`.
 - Put SQLAlchemy models in `models.py`.
-- Use `Annotated[Type, Depends(...)]` style for FastAPI dependency injection.
 - Do not call blocking SDK methods inside async route handlers, services, Telegram handlers, or background jobs.
 - Keep provider integrations behind service or provider interfaces.
 - Enforce user ownership in queries, not only at the route layer.
@@ -108,8 +106,10 @@ When backend endpoint contracts change:
 - Do not perform broad refactoring unless required by the approved change.
 - Do not read unrelated modules to infer hidden requirements.
 - Do not mark tasks complete before code and tests are done.
-- If implementation conflicts with the approved spec, stop and use `ask_user` for clarification.
+- If implementation conflicts with the approved spec, stop and ask for clarification.
 
 # Next Step
 
 After implementation and relevant checks are complete, the next skill in the default delivery flow is `test-spec`.
+
+Use `test-spec` to compare the implementation against the approved OpenSpec change, verify completed tasks, run relevant checks, and report any gaps before opening a PR.

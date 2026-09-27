@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { AssistantConversationResponse } from "@/src/api/generated/models/assistantConversationResponse";
 
 jest.mock("react-markdown", () => ({
   __esModule: true,
@@ -7,8 +8,18 @@ jest.mock("react-markdown", () => ({
 }));
 jest.mock("remark-gfm", () => ({ __esModule: true, default: jest.fn() }));
 
-import { ChatMessage } from "./assistant-chat";
+import { ChatMessage, getSuggestedReplyVisibleMessageIds } from "./assistant-chat";
 import { PendingActionCard } from "./pending-action-card";
+
+function conversationMessages(...messages: Array<Partial<AssistantConversationResponse["messages"][number]>>): AssistantConversationResponse["messages"] {
+  return messages.map((message, index) => ({
+    id: `message-${index + 1}`,
+    role: "assistant",
+    content: "Message",
+    created_at: "2026-09-07T00:00:00Z",
+    ...message,
+  }));
+}
 
 describe("PendingActionCard", () => {
   it("uses chat guidance instead of confirmation controls for a pending action", () => {
@@ -33,6 +44,29 @@ describe("PendingActionCard", () => {
 });
 
 describe("ChatMessage", () => {
+  it("hides earlier suggested replies after a later typed message", () => {
+    const visibleMessageIds = getSuggestedReplyVisibleMessageIds(
+      conversationMessages(
+        { id: "assistant-1", suggested_replies: ["Tell me more"] },
+        { id: "user-1", role: "user", content: "What about Bitcoin?" },
+        { id: "assistant-2", suggested_replies: ["Show recent news"] },
+      ),
+    );
+
+    expect(visibleMessageIds).toEqual(new Set(["assistant-2"]));
+  });
+
+  it("hides earlier suggested replies after a selected suggestion is recorded", () => {
+    const visibleMessageIds = getSuggestedReplyVisibleMessageIds(
+      conversationMessages(
+        { id: "assistant-1", suggested_replies: ["Compare prices"] },
+        { id: "user-1", role: "user", content: "Compare prices" },
+      ),
+    );
+
+    expect(visibleMessageIds).toEqual(new Set());
+  });
+
   it("sends a pending-action quick reply through the normal message callback", async () => {
     const user = userEvent.setup();
     const onSuggestedReply = jest.fn();
