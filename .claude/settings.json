@@ -25,5 +25,9 @@
       "Read(./k8s/secrets/**)"
     ]
   },
-  "enabledMcpjsonServers": ["linear"]
+  "enabledMcpjsonServers": ["linear"],
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  }
 }
