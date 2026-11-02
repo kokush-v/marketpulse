@@ -1,4 +1,4 @@
-.PHONY: sync dev lint test test-unit migrate migrate-test
+.PHONY: sync dev lint test test-unit test-ai-eval migrate migrate-test
 
 sync:
 	uv sync --dev
@@ -15,6 +15,10 @@ test:
 
 test-unit:
 	uv run pytest tests/unit
+
+# Calls the real Groq model; requires GROQ_API_KEY.
+test-ai-eval:
+	uv run pytest tests/ai_eval -s
 
 migrate:
 	uv run alembic upgrade head

@@ -27,12 +27,14 @@ dev = [
   "ruff>=0.5.0",
   "pytest>=8.2.0",
   "pytest-asyncio>=0.23.0",
+  "agentevals>=0.0.9",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["."]
-testpaths = ["tests"]
+# tests/ai_eval calls the real Groq model and runs only through `make test-ai-eval`.
+testpaths = ["tests/unit", "tests/features"]
 
 [tool.ruff]
 line-length = 100

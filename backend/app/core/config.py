@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     groq_timeout_seconds: float = 30.0
     groq_max_retries: int = 2
     groq_max_tokens: int = 1024
+    assistant_eval_groq_model: str | None = None
     assistant_max_tool_calls: int = 4
     assistant_max_context_messages: int = 10
     assistant_max_context_characters: int = 12_000
