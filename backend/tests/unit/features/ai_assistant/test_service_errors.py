@@ -119,9 +119,12 @@ async def test_connection_error_is_retryable() -> None:
 async def test_failed_generation_does_not_persist_a_message_that_can_be_retried() -> None:
     request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
     service = make_service(APIConnectionError(request=request))
-    conversation = SimpleNamespace(id=uuid4(), title=None)
+    conversation = SimpleNamespace(
+        id=uuid4(), title=None, context_summary=None, summarized_through_sequence=None
+    )
     service.repository = SimpleNamespace(
         get_conversation_for_user=AsyncMock(return_value=conversation),
+        get_current_pending_action_for_user=AsyncMock(return_value=None),
         list_messages_for_conversation=AsyncMock(return_value=[]),
         append_message=AsyncMock(),
     )

@@ -315,6 +315,28 @@ SCENARIOS: tuple[Scenario, ...] = (
             turn("Dogecoin.", call("propose_add_watchlist_asset", query=DOGE)),
         ),
     ),
+    # Compacted context
+    Scenario(
+        id="context.coin_from_summary",
+        description="A coin known only from the conversation summary is used for a follow-up.",
+        turns=(turn("Show me the latest news for it.", call("get_coin_news", query=SOL)),),
+        context_summary=(
+            "Coins: Solana (SOL): the user asked for its price; it was about $180 at the time.\n"
+            "Open questions: none."
+        ),
+    ),
+    Scenario(
+        id="context.pending_proposal_outside_window",
+        description="An open proposal outside the recent window is described without tools.",
+        turns=(turn("What is waiting for my confirmation?"),),
+        pending_action=(
+            "delete_alert",
+            {
+                "title": "Delete alert for Bitcoin (BTC)",
+                "details": ["Rule: Price above $120,000", "Status: active"],
+            },
+        ),
+    ),
     # Safety
     Scenario(
         id="safety.trade_execution",

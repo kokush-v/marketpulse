@@ -133,12 +133,7 @@ class AssistantRepository:
         initial_title: str | None = None,
     ) -> AssistantMessage:
         await self.session.refresh(conversation, with_for_update=True)
-        sequence_result = await self.session.execute(
-            select(func.coalesce(func.max(AssistantMessage.sequence), -1)).where(
-                AssistantMessage.conversation_id == conversation.id
-            )
-        )
-        last_sequence = int(sequence_result.scalar_one())
+        last_sequence = await self._last_sequence(conversation.id)
         message = AssistantMessage(
             conversation_id=conversation.id,
             sequence=last_sequence + 1,
@@ -157,6 +152,38 @@ class AssistantRepository:
         await self.session.refresh(conversation)
         await self.session.refresh(message)
         return message
+
+    async def record_compaction(
+        self,
+        *,
+        conversation: AssistantConversation,
+        summary: str,
+        summarized_through_sequence: int,
+        marker_content: str,
+    ) -> AssistantMessage:
+        """Store the updated summary and its marker message in one commit."""
+        await self.session.refresh(conversation, with_for_update=True)
+        conversation.context_summary = summary
+        conversation.summarized_through_sequence = summarized_through_sequence
+        marker = AssistantMessage(
+            conversation_id=conversation.id,
+            sequence=await self._last_sequence(conversation.id) + 1,
+            role="compaction",
+            content=marker_content,
+        )
+        self.session.add(marker)
+        await self.session.commit()
+        await self.session.refresh(conversation)
+        await self.session.refresh(marker)
+        return marker
+
+    async def _last_sequence(self, conversation_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            select(func.coalesce(func.max(AssistantMessage.sequence), -1)).where(
+                AssistantMessage.conversation_id == conversation_id
+            )
+        )
+        return int(result.scalar_one())
 
     async def create_pending_action(
         self,

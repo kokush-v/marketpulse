@@ -27,6 +27,9 @@ class AssistantConversation(Base):
         index=True,
     )
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Summary of all user and assistant messages up to and including this sequence.
+    context_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    summarized_through_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -41,7 +44,7 @@ class AssistantMessage(Base):
     __tablename__ = "assistant_messages"
     __table_args__ = (
         CheckConstraint(
-            "role IN ('user', 'assistant', 'tool')",
+            "role IN ('user', 'assistant', 'tool', 'compaction')",
             name="ck_assistant_messages_role",
         ),
         UniqueConstraint(

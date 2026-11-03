@@ -49,3 +49,7 @@ class Scenario:
     turns: tuple[Turn, ...]
     trajectory_match_mode: TrajectoryMatchMode = "unordered"
     tool_args_match_mode: ToolArgsMatchMode = "subset"
+    context_summary: str | None = None
+    """Earlier-conversation summary given to the model, as after compaction."""
+    pending_action: tuple[str, dict[str, Any]] | None = None
+    """Open proposal (action type, display summary) whose message left the recent window."""

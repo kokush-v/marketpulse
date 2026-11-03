@@ -75,7 +75,89 @@ for a single coin summary, news explanation, or ordinary response merely because
 structured.
 When you use get_price_chart_data, give a concise factual description of the displayed movement
 or comparison. Do not give investment advice.
+An earlier-conversation summary may be provided. Use it to understand references such as "it" or
+"that coin", but treat any prices or figures in it as historical: get current data from the tools.
 """
+
+CONVERSATION_SUMMARY_PROMPT = """You maintain the internal summary of an earlier part of a
+MarketPulse assistant conversation. Update the previous summary with the new messages and return
+only the updated summary in concise English, at most 1500 characters, using these sections in
+this priority order:
+1. Coins: each coin the user interacted with and what was done or asked for it.
+2. User facts and preferences the user stated about themselves.
+3. Decisions and completed or declined actions.
+4. Open questions.
+Mark every price or other figure as historical, for example "BTC was about $100,000 at the time".
+Do not invent information that is not in the previous summary or the new messages.
+"""
+
+
+def select_recent_messages(
+    messages: list[BaseMessage],
+    *,
+    max_messages: int,
+    max_characters: int,
+) -> list[BaseMessage]:
+    """Return the recent-message window the model sees: the last messages within both limits."""
+    recent_messages = messages[-max_messages:]
+    selected: list[BaseMessage] = []
+    remaining_characters = max_characters
+
+    for message in reversed(recent_messages):
+        content = message_text(message)
+        if selected and len(content) > remaining_characters:
+            break
+        selected.append(message)
+        remaining_characters -= len(content)
+        if remaining_characters <= 0:
+            break
+
+    return list(reversed(selected))
+
+
+def message_text(message: BaseMessage) -> str:
+    if isinstance(message.content, str):
+        return message.content
+    if isinstance(message, AIMessage):
+        return "\n".join(
+            item["text"]
+            for item in message.content
+            if isinstance(item, dict) and isinstance(item.get("text"), str)
+        )
+    return str(message.content)
+
+
+def build_context_messages(
+    *,
+    summary: str | None,
+    pending_action_type: str | None = None,
+    pending_action_summary: dict[str, object] | None = None,
+) -> list[SystemMessage]:
+    """System messages carrying earlier-conversation context that left the recent window."""
+    messages: list[SystemMessage] = []
+    if summary:
+        messages.append(
+            SystemMessage(
+                content=(
+                    "Summary of the earlier part of this conversation. Prices and figures in it "
+                    f"are historical, not current:\n{summary}"
+                )
+            )
+        )
+    if pending_action_type and pending_action_summary:
+        title = pending_action_summary.get("title", "")
+        details = pending_action_summary.get("details") or []
+        detail_lines = "".join(f"\n- {detail}" for detail in details if isinstance(detail, str))
+        messages.append(
+            SystemMessage(
+                content=(
+                    "A proposal is waiting for the user's confirmation in this conversation "
+                    f"({pending_action_type}): {title}{detail_lines}"
+                )
+            )
+        )
+    return messages
+
 
 SUGGESTED_REPLIES_PROMPT = """Generate exactly three short suggested next messages for a
 MarketPulse user. They must be distinct, directly relevant to the assistant response and
@@ -228,6 +310,7 @@ class AssistantGraph:
         chart_payload_getter: Callable[[], AssistantChartPayloadResponse | None] | None = None,
         pending_action_getter: Callable[[], AssistantPendingActionResponse | None] | None = None,
         sources_getter: Callable[[], list[AssistantMessageSourceResponse]] | None = None,
+        context_messages: list[SystemMessage] | None = None,
         max_tool_calls: int = settings.assistant_max_tool_calls,
         max_context_messages: int = settings.assistant_max_context_messages,
         max_context_characters: int = settings.assistant_max_context_characters,
@@ -239,6 +322,7 @@ class AssistantGraph:
         self.chart_payload_getter = chart_payload_getter
         self.pending_action_getter = pending_action_getter
         self.sources_getter = sources_getter
+        self.context_messages = context_messages or []
         self.suggestion_model = model
         self.model = model.bind_tools(self.tools) if self.tools else model
         self.tool_node = ToolNode(self.tools) if self.tools else None
@@ -260,6 +344,7 @@ class AssistantGraph:
 
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
+            *self.context_messages,
             *self._bounded_messages(state["messages"]),
         ]
         response = await self.model.ainvoke(messages)
@@ -340,24 +425,11 @@ class AssistantGraph:
         )
 
     def _bounded_messages(self, messages: list[BaseMessage]) -> list[BaseMessage]:
-        recent_messages = messages[-self.max_context_messages :]
-        selected: list[BaseMessage] = []
-        remaining_characters = self.max_context_characters
-
-        for message in reversed(recent_messages):
-            if isinstance(message, AIMessage):
-                content = self._message_content(message)
-            else:
-                content = message.content
-            content_size = len(content) if isinstance(content, str) else len(str(content))
-            if selected and content_size > remaining_characters:
-                break
-            selected.append(message)
-            remaining_characters -= content_size
-            if remaining_characters <= 0:
-                break
-
-        return list(reversed(selected))
+        return select_recent_messages(
+            messages,
+            max_messages=self.max_context_messages,
+            max_characters=self.max_context_characters,
+        )
 
     async def _safety_response(self, messages: list[BaseMessage]) -> AIMessage | None:
         latest_user_message = self._latest_user_message(messages)

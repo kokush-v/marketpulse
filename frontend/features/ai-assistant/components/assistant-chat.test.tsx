@@ -8,7 +8,7 @@ jest.mock("react-markdown", () => ({
 }));
 jest.mock("remark-gfm", () => ({ __esModule: true, default: jest.fn() }));
 
-import { ChatMessage, getSuggestedReplyVisibleMessageIds } from "./assistant-chat";
+import { ChatMessage, CompactionDivider, getSuggestedReplyVisibleMessageIds } from "./assistant-chat";
 import { PendingActionCard } from "./pending-action-card";
 
 function conversationMessages(...messages: Array<Partial<AssistantConversationResponse["messages"][number]>>): AssistantConversationResponse["messages"] {
@@ -40,6 +40,28 @@ describe("PendingActionCard", () => {
     expect(screen.getByText("Reply in chat to confirm or cancel this action.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /confirm/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /cancel/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("CompactionDivider", () => {
+  it("renders a muted context compacted divider", () => {
+    render(<CompactionDivider />);
+
+    expect(screen.getByRole("separator", { name: "Context compacted" })).toHaveTextContent("Context compacted");
+  });
+});
+
+describe("getSuggestedReplyVisibleMessageIds with compaction markers", () => {
+  it("ignores markers when deciding which suggested replies stay visible", () => {
+    const visible = getSuggestedReplyVisibleMessageIds(
+      conversationMessages(
+        { role: "user" },
+        { role: "assistant", suggested_replies: ["Show news"] },
+        { role: "compaction", content: "Context compacted" },
+      ),
+    );
+
+    expect([...visible]).toEqual(["message-2"]);
   });
 });
 

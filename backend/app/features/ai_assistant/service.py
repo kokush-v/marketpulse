@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -16,10 +17,12 @@ from groq import (
     RateLimitError,
     UnprocessableEntityError,
 )
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import Runnable
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.db.session import get_async_session
 from app.features.ai_assistant.actions import (
     AssistantActionError,
@@ -27,10 +30,13 @@ from app.features.ai_assistant.actions import (
     PendingActionCapture,
 )
 from app.features.ai_assistant.graph import (
+    CONVERSATION_SUMMARY_PROMPT,
     AssistantGraph,
     AssistantGraphConfigurationError,
     AssistantGraphResponse,
+    build_context_messages,
     build_groq_model,
+    select_recent_messages,
 )
 from app.features.ai_assistant.models import AssistantConversation, AssistantMessage
 from app.features.ai_assistant.repository import AssistantRepository
@@ -91,6 +97,7 @@ another operation."""
         "ні скасувати": "cancel",
     }
     _PENDING_ACTION_SUGGESTED_REPLIES = ["Yes, confirm", "No, cancel"]
+    _COMPACTION_MARKER_CONTENT = "Context compacted"
     _PENDING_ACTION_FOLLOW_UP_REPLIES = [
         "Show my watchlist.",
         "List my alerts.",
@@ -314,6 +321,7 @@ another operation."""
                 )
 
         messages = await self.repository.list_messages_for_conversation(conversation.id)
+        await self._compact_conversation_if_needed(conversation, messages, pending_content=content)
         response = await self._get_graph_response(
             user,
             messages,
@@ -421,8 +429,7 @@ another operation."""
         verified_outcome: str,
     ) -> str:
         try:
-            model = self._model or build_groq_model()
-            self._model = model
+            model = self._get_model()
             context = [
                 HumanMessage(content=message.content)
                 if message.role == "user"
@@ -460,6 +467,99 @@ another operation."""
             )
         return conversation
 
+    def _get_model(self) -> Runnable[list[BaseMessage], AIMessage]:
+        if self._model is None:
+            self._model = build_groq_model()
+        return self._model
+
+    @staticmethod
+    def _model_history(messages: list[AssistantMessage]) -> list[HumanMessage | AIMessage]:
+        """User and assistant messages for the model; compaction markers are never sent."""
+        return [
+            HumanMessage(content=message.content)
+            if message.role == "user"
+            else AIMessage(content=message.content)
+            for message in messages
+            if message.role in {"user", "assistant"}
+        ]
+
+    async def _compact_conversation_if_needed(
+        self,
+        conversation: AssistantConversation,
+        messages: list[AssistantMessage],
+        *,
+        pending_content: str,
+    ) -> None:
+        history = [message for message in messages if message.role in {"user", "assistant"}]
+        window = select_recent_messages(
+            [*self._model_history(history), HumanMessage(content=pending_content)],
+            max_messages=settings.assistant_max_context_messages,
+            max_characters=settings.assistant_max_context_characters,
+        )
+        # The window always ends with the pending user message, which is not stored yet.
+        out_of_window = history[: len(history) - (len(window) - 1)]
+        summarized_through = conversation.summarized_through_sequence
+        new_messages = [
+            message
+            for message in out_of_window
+            if summarized_through is None or message.sequence > summarized_through
+        ]
+        if not new_messages:
+            return
+        try:
+            summary = await self._summarize_messages(conversation.context_summary, new_messages)
+        except Exception:
+            logger.warning("Assistant conversation compaction failed", exc_info=True)
+            return
+        if not summary:
+            logger.warning("Assistant conversation compaction returned an empty summary")
+            return
+        await self.repository.record_compaction(
+            conversation=conversation,
+            summary=summary,
+            summarized_through_sequence=new_messages[-1].sequence,
+            marker_content=self._COMPACTION_MARKER_CONTENT,
+        )
+
+    async def _summarize_messages(
+        self,
+        previous_summary: str | None,
+        messages: list[AssistantMessage],
+    ) -> str:
+        transcript = "\n".join(
+            f"{'User' if message.role == 'user' else 'Assistant'}: {message.content}"
+            for message in messages
+        )
+        response = await self._get_model().ainvoke(
+            [
+                SystemMessage(content=CONVERSATION_SUMMARY_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"Previous summary:\n{previous_summary or 'None'}\n\n"
+                        f"New messages:\n{transcript}"
+                    )
+                ),
+            ]
+        )
+        return self._message_content(response).strip()
+
+    async def _conversation_context_messages(
+        self,
+        user: User,
+        conversation: AssistantConversation,
+    ) -> list[SystemMessage]:
+        pending_action = await self.repository.get_current_pending_action_for_user(
+            user_id=user.id,
+            conversation_id=conversation.id,
+        )
+        if pending_action is not None and pending_action.expires_at <= datetime.now(UTC):
+            pending_action = None
+        return build_context_messages(
+            summary=conversation.context_summary,
+            pending_action_type=pending_action.action_type if pending_action else None,
+            pending_action_summary=pending_action.display_summary if pending_action else None,
+        )
+
     async def _get_graph_response(
         self,
         user: User,
@@ -468,8 +568,12 @@ another operation."""
         pending_content: str | None = None,
     ) -> AssistantGraphResponse:
         try:
-            model = self._model or build_groq_model()
-            self._model = model
+            model = self._get_model()
+            context_messages = (
+                await self._conversation_context_messages(user, conversation)
+                if conversation is not None
+                else []
+            )
             chart_payload_capture = ChartPayloadCapture()
             pending_action_capture = PendingActionCapture()
             sources_capture = SourcesCapture()
@@ -491,14 +595,9 @@ another operation."""
                 chart_payload_getter=lambda: chart_payload_capture.payload,
                 pending_action_getter=lambda: pending_action_capture.pending_action,
                 sources_getter=lambda: sources_capture.sources,
+                context_messages=context_messages,
             )
-            graph_messages = [
-                HumanMessage(content=message.content)
-                if message.role == "user"
-                else AIMessage(content=message.content)
-                for message in messages
-                if message.role in {"user", "assistant"}
-            ]
+            graph_messages = self._model_history(messages)
             if pending_content is not None:
                 graph_messages.append(HumanMessage(content=pending_content))
             return await graph.respond_with_suggestions(graph_messages)

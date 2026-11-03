@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-AssistantMessageRole = Literal["user", "assistant"]
+AssistantMessageRole = Literal["user", "assistant", "compaction"]
 AssistantChartPeriod = Literal["24h", "7d", "30d", "1y"]
 AssistantPendingActionType = Literal[
     "add_watchlist_asset",

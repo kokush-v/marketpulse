@@ -263,7 +263,14 @@ def _service_with_conversation() -> tuple[AssistantService, SimpleNamespace]:
         watchlist_service=cast(Any, None),
         alert_service=cast(Any, None),
     )
-    conversation = SimpleNamespace(id=uuid4(), title=None, created_at=NOW, updated_at=NOW)
+    conversation = SimpleNamespace(
+        id=uuid4(),
+        title=None,
+        created_at=NOW,
+        updated_at=NOW,
+        context_summary=None,
+        summarized_through_sequence=None,
+    )
     service.repository = cast(
         Any,
         SimpleNamespace(

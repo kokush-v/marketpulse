@@ -9,7 +9,7 @@ from agentevals.trajectory.match import create_trajectory_match_evaluator
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_core.runnables import Runnable
 
-from app.features.ai_assistant.graph import AssistantGraph
+from app.features.ai_assistant.graph import AssistantGraph, build_context_messages
 from app.features.ai_assistant.tools import build_read_tools
 from tests.ai_eval.scenario_format import MISSING, AnyOf, ExpectedToolCall, Scenario, Turn
 from tests.ai_eval.stubs import (
@@ -64,7 +64,15 @@ async def run_scenario(
         conversation=stub_conversation(),
         action_service=StubActionService(recorder),  # type: ignore[arg-type]
     )
-    graph = AssistantGraph(model, tools=tools)
+    graph = AssistantGraph(
+        model,
+        tools=tools,
+        context_messages=build_context_messages(
+            summary=scenario.context_summary,
+            pending_action_type=scenario.pending_action[0] if scenario.pending_action else None,
+            pending_action_summary=scenario.pending_action[1] if scenario.pending_action else None,
+        ),
+    )
     history: list[BaseMessage] = []
     result = ScenarioResult(scenario=scenario)
 

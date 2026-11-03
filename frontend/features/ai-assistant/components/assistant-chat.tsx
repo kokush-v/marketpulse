@@ -470,28 +470,32 @@ export function AssistantChat({
                 <p className="mt-1 max-w-sm text-sm leading-6 text-muted-foreground">Start a conversation about a coin or ask the assistant to help with your MarketPulse workspace.</p>
               </div>
             ) : (
-              messages.map((message, index) => (
-                <ChatMessage
-                  key={message.id}
-                  messageId={message.id}
-                  conversationId={conversation?.id}
-                  compact={compact}
-                  role={message.role}
-                  content={message.content}
-                  chartPayload={message.chart_payload}
-                  pendingAction={message.pending_action}
-                  sources={message.sources}
-                  feedback={message.feedback}
-                  suggestedReplies={
-                    hiddenSuggestedReplyMessageIds.has(message.id) || !visibleSuggestedReplyMessageIds.has(message.id)
-                      ? EMPTY_SUGGESTED_REPLIES
-                      : message.suggested_replies
-                  }
-                  onSuggestedReply={selectSuggestedReply}
-                  suggestionsDisabled={isBusy}
-                  animationDelay={Math.min(index, 8) * 35}
-                />
-              ))
+              messages.map((message, index) =>
+                message.role === "compaction" ? (
+                  <CompactionDivider key={message.id} />
+                ) : (
+                  <ChatMessage
+                    key={message.id}
+                    messageId={message.id}
+                    conversationId={conversation?.id}
+                    compact={compact}
+                    role={message.role}
+                    content={message.content}
+                    chartPayload={message.chart_payload}
+                    pendingAction={message.pending_action}
+                    sources={message.sources}
+                    feedback={message.feedback}
+                    suggestedReplies={
+                      hiddenSuggestedReplyMessageIds.has(message.id) || !visibleSuggestedReplyMessageIds.has(message.id)
+                        ? EMPTY_SUGGESTED_REPLIES
+                        : message.suggested_replies
+                    }
+                    onSuggestedReply={selectSuggestedReply}
+                    suggestionsDisabled={isBusy}
+                    animationDelay={Math.min(index, 8) * 35}
+                  />
+                ),
+              )
             )}
             {pendingMessage ? <ChatMessage compact={compact} role="user" content={pendingMessage} /> : null}
             {failedMessage ? (
@@ -673,6 +677,16 @@ export const ChatMessage = React.memo(function ChatMessage({
     </div>
   );
 });
+
+export function CompactionDivider() {
+  return (
+    <div role="separator" aria-label="Context compacted" className="flex items-center gap-3 py-1 text-xs text-muted-foreground">
+      <span className="h-px flex-1 bg-border" />
+      <span>Context compacted</span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
 
 function AssistantMarkdown({ content }: { content: string }) {
   return (
