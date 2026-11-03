@@ -8,8 +8,10 @@ from app.features.ai_assistant.schemas import (
     AssistantConversationListResponse,
     AssistantConversationResponse,
     AssistantErrorResponse,
+    AssistantMessageFeedbackResponse,
     CreateAssistantConversationRequest,
     SendAssistantMessageRequest,
+    SubmitAssistantMessageFeedbackRequest,
     UpdateAssistantConversationRequest,
 )
 from app.features.ai_assistant.service import AssistantService, AssistantServiceError
@@ -125,6 +127,32 @@ async def send_message(
 ) -> AssistantConversationResponse:
     try:
         return await service.send_message(current_user, conversation_id, payload)
+    except AssistantServiceError as error:
+        return _service_error_response(error)
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages/{message_id}/feedback",
+    response_model=AssistantMessageFeedbackResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Rate an assistant response",
+    responses={
+        404: {"model": AssistantErrorResponse},
+        409: {"model": AssistantErrorResponse},
+        422: {"model": AssistantErrorResponse},
+    },
+)
+async def submit_message_feedback(
+    conversation_id: UUID,
+    message_id: UUID,
+    payload: SubmitAssistantMessageFeedbackRequest,
+    current_user: Annotated[User, current_user_dependency],
+    service: Annotated[AssistantService, Depends()],
+) -> AssistantMessageFeedbackResponse:
+    try:
+        return await service.submit_message_feedback(
+            current_user, conversation_id, message_id, payload
+        )
     except AssistantServiceError as error:
         return _service_error_response(error)
 

@@ -27,6 +27,7 @@ import {
   ContextMenuTrigger,
 } from "@/shared/components/ui/context-menu";
 import { cn } from "@/shared/lib/utils";
+import { MessageFeedback } from "./message-feedback";
 import { MessageSources } from "./message-sources";
 import { PendingActionCard } from "./pending-action-card";
 import { PriceChartCard } from "./price-chart-card";
@@ -473,12 +474,14 @@ export function AssistantChat({
                 <ChatMessage
                   key={message.id}
                   messageId={message.id}
+                  conversationId={conversation?.id}
                   compact={compact}
                   role={message.role}
                   content={message.content}
                   chartPayload={message.chart_payload}
                   pendingAction={message.pending_action}
                   sources={message.sources}
+                  feedback={message.feedback}
                   suggestedReplies={
                     hiddenSuggestedReplyMessageIds.has(message.id) || !visibleSuggestedReplyMessageIds.has(message.id)
                       ? EMPTY_SUGGESTED_REPLIES
@@ -567,6 +570,7 @@ const AssistantComposer = React.memo(function AssistantComposer({
 
 export const ChatMessage = React.memo(function ChatMessage({
   messageId,
+  conversationId,
   compact = false,
   role,
   content,
@@ -574,6 +578,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   chartPayload,
   pendingAction,
   sources,
+  feedback,
   errorMessage,
   onSuggestedReply,
   onRetry,
@@ -582,6 +587,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   animationDelay = 0,
 }: {
   messageId?: string;
+  conversationId?: string;
   compact?: boolean;
   role: "user" | "assistant";
   content: string;
@@ -589,6 +595,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   chartPayload?: AssistantConversationResponse["messages"][number]["chart_payload"];
   pendingAction?: AssistantConversationResponse["messages"][number]["pending_action"];
   sources?: AssistantConversationResponse["messages"][number]["sources"];
+  feedback?: AssistantConversationResponse["messages"][number]["feedback"];
   errorMessage?: string;
   onSuggestedReply?: (messageId: string, reply: string) => void;
   onRetry?: () => void;
@@ -642,6 +649,9 @@ export const ChatMessage = React.memo(function ChatMessage({
         ) : null}
         {!isUser && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
         {!isUser && sources?.length ? <MessageSources sources={sources} /> : null}
+        {!isUser && messageId && conversationId ? (
+          <MessageFeedback conversationId={conversationId} messageId={messageId} feedback={feedback} />
+        ) : null}
         {!isUser && messageId && suggestedReplies.length > 0 && onSuggestedReply ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {suggestedReplies.map((reply) => (

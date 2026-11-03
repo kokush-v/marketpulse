@@ -17,7 +17,7 @@ from groq import (
     UnprocessableEntityError,
 )
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -39,9 +39,11 @@ from app.features.ai_assistant.schemas import (
     AssistantConversationResponse,
     AssistantConversationSummaryResponse,
     AssistantErrorCode,
+    AssistantMessageFeedbackResponse,
     AssistantMessageResponse,
     CreateAssistantConversationRequest,
     SendAssistantMessageRequest,
+    SubmitAssistantMessageFeedbackRequest,
     UpdateAssistantConversationRequest,
 )
 from app.features.ai_assistant.tools import ChartPayloadCapture, SourcesCapture, build_read_tools
@@ -161,6 +163,52 @@ another operation."""
     async def delete_conversation(self, user: User, conversation_id: UUID) -> None:
         conversation = await self._get_owned_conversation(user, conversation_id)
         await self.repository.delete_conversation(conversation=conversation)
+
+    async def submit_message_feedback(
+        self,
+        user: User,
+        conversation_id: UUID,
+        message_id: UUID,
+        payload: SubmitAssistantMessageFeedbackRequest,
+    ) -> AssistantMessageFeedbackResponse:
+        message = await self.repository.get_message_for_user(
+            user_id=user.id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+        )
+        if message is None:
+            raise AssistantServiceError(
+                status.HTTP_404_NOT_FOUND,
+                "message_not_found",
+                "Message not found",
+            )
+        if message.role != "assistant":
+            raise AssistantServiceError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "invalid_feedback_target",
+                "Only assistant responses can be rated",
+            )
+        if message.feedback is not None:
+            raise self._feedback_already_submitted()
+        try:
+            feedback = await self.repository.create_message_feedback(
+                message=message,
+                user_id=user.id,
+                rating=payload.rating,
+                reason=payload.reason,
+            )
+        except IntegrityError as error:
+            await self.repository.session.rollback()
+            raise self._feedback_already_submitted() from error
+        return AssistantMessageFeedbackResponse.model_validate(feedback)
+
+    @staticmethod
+    def _feedback_already_submitted() -> AssistantServiceError:
+        return AssistantServiceError(
+            status.HTTP_409_CONFLICT,
+            "feedback_already_submitted",
+            "This response has already been rated",
+        )
 
     async def confirm_pending_action(
         self,

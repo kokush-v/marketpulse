@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.features.ai_assistant.models import (
     AssistantConversation,
     AssistantMessage,
+    AssistantMessageFeedback,
     AssistantPendingAction,
 )
 
@@ -62,6 +63,47 @@ class AssistantRepository:
             .order_by(AssistantMessage.sequence.asc())
         )
         return list(result.scalars().all())
+
+    async def get_message_for_user(
+        self,
+        *,
+        user_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        message_id: uuid.UUID,
+    ) -> AssistantMessage | None:
+        result = await self.session.execute(
+            select(AssistantMessage)
+            .join(
+                AssistantConversation,
+                AssistantConversation.id == AssistantMessage.conversation_id,
+            )
+            .where(
+                AssistantMessage.id == message_id,
+                AssistantMessage.conversation_id == conversation_id,
+                AssistantConversation.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_message_feedback(
+        self,
+        *,
+        message: AssistantMessage,
+        user_id: uuid.UUID,
+        rating: str,
+        reason: str | None,
+    ) -> AssistantMessageFeedback:
+        feedback = AssistantMessageFeedback(
+            message_id=message.id,
+            user_id=user_id,
+            rating=rating,
+            reason=reason,
+        )
+        message.feedback = feedback
+        self.session.add(feedback)
+        await self.session.commit()
+        await self.session.refresh(feedback)
+        return feedback
 
     async def update_conversation_title(
         self,

@@ -17,6 +17,7 @@ AssistantPendingActionType = Literal[
 ]
 AssistantPendingActionStatus = Literal["pending", "confirmed", "cancelled", "expired"]
 AssistantMessageSourceKind = Literal["news", "marketpulse"]
+AssistantFeedbackRating = Literal["positive", "negative"]
 AssistantErrorCode = Literal[
     "assistant_not_configured",
     "assistant_configuration_error",
@@ -29,6 +30,9 @@ AssistantErrorCode = Literal[
     "invalid_conversation_title",
     "pending_action_not_found",
     "pending_action_resolved",
+    "message_not_found",
+    "invalid_feedback_target",
+    "feedback_already_submitted",
 ]
 
 
@@ -81,6 +85,30 @@ class AssistantMessageSourceResponse(BaseModel):
     stale: bool = False
 
 
+class SubmitAssistantMessageFeedbackRequest(BaseModel):
+    rating: AssistantFeedbackRating
+    reason: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Optional free-text reason; trimmed, and stored as null when empty.",
+    )
+
+    @field_validator("reason", mode="before")
+    @classmethod
+    def normalize_reason(cls, reason: object) -> object:
+        if isinstance(reason, str):
+            return reason.strip() or None
+        return reason
+
+
+class AssistantMessageFeedbackResponse(BaseModel):
+    rating: AssistantFeedbackRating
+    reason: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class AssistantMessageResponse(BaseModel):
     id: UUID
     role: AssistantMessageRole
@@ -89,6 +117,7 @@ class AssistantMessageResponse(BaseModel):
     chart_payload: AssistantChartPayloadResponse | None = None
     pending_action: AssistantPendingActionResponse | None = None
     sources: list[AssistantMessageSourceResponse] = Field(default_factory=list)
+    feedback: AssistantMessageFeedbackResponse | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
