@@ -40,6 +40,12 @@ type AssistantChatProps = {
 };
 
 const EMPTY_SUGGESTED_REPLIES: string[] = [];
+const REVEAL_STEP_MS = 30;
+const REVEAL_MAX_STEPS = 80;
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+}
 
 export function getSuggestedReplyVisibleMessageIds(
   messages: AssistantConversationResponse["messages"],
@@ -83,6 +89,7 @@ export function AssistantChat({
   const [hiddenSuggestedReplyMessageIds, setHiddenSuggestedReplyMessageIds] = React.useState<Set<string>>(
     () => new Set(),
   );
+  const [revealingMessageIds, setRevealingMessageIds] = React.useState<Set<string>>(() => new Set());
   const [hasNewMessagesBelow, setHasNewMessagesBelow] = React.useState(false);
   const messagesViewportRef = React.useRef<HTMLDivElement>(null);
   const activeConversationIdRef = React.useRef<string | undefined>(undefined);
@@ -159,10 +166,23 @@ export function AssistantChat({
         conversationId = conversation.id;
       }
 
+      const previousMessageIds = new Set(
+        queryClient
+          .getQueryData<AssistantConversationResponse>(
+            getGetConversationAssistantConversationsConversationIdGetQueryKey(conversationId),
+          )
+          ?.messages.map((message) => message.id) ?? [],
+      );
       const conversation = await sendMessage.mutateAsync({
         conversationId,
         data: { content },
       });
+      const newAssistantMessageIds = conversation.messages
+        .filter((message) => message.role === "assistant" && !previousMessageIds.has(message.id))
+        .map((message) => message.id);
+      if (newAssistantMessageIds.length > 0 && !prefersReducedMotion()) {
+        setRevealingMessageIds((messageIds) => new Set([...messageIds, ...newAssistantMessageIds]));
+      }
       setConversation(conversation);
       await queryClient.invalidateQueries({
         queryKey: getListConversationsAssistantConversationsGetQueryKey(),
@@ -200,6 +220,28 @@ export function AssistantChat({
     },
     [sendContent],
   );
+
+  const completeReveal = React.useCallback((messageId: string) => {
+    setRevealingMessageIds((messageIds) => {
+      if (!messageIds.has(messageId)) {
+        return messageIds;
+      }
+      const nextMessageIds = new Set(messageIds);
+      nextMessageIds.delete(messageId);
+      return nextMessageIds;
+    });
+  }, []);
+
+  const keepRevealInView = React.useCallback(() => {
+    const viewport = messagesViewportRef.current;
+    if (viewport && isNearBottomRef.current) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    setRevealingMessageIds((messageIds) => (messageIds.size > 0 ? new Set() : messageIds));
+  }, [activeConversationId]);
 
   const startRenaming = (conversationId: string, title: string | null | undefined) => {
     setHistoryError(undefined);
@@ -493,6 +535,9 @@ export function AssistantChat({
                     onSuggestedReply={selectSuggestedReply}
                     suggestionsDisabled={isBusy}
                     animationDelay={Math.min(index, 8) * 35}
+                    reveal={revealingMessageIds.has(message.id)}
+                    onRevealProgress={keepRevealInView}
+                    onRevealComplete={completeReveal}
                   />
                 ),
               )
@@ -508,7 +553,7 @@ export function AssistantChat({
                 retryDisabled={isBusy}
               />
             ) : null}
-            {isBusy ? <p className="text-sm text-muted-foreground">Assistant is thinking…</p> : null}
+            {isBusy ? <TypingIndicator /> : null}
           </div>
         </ScrollArea>
 
@@ -589,6 +634,9 @@ export const ChatMessage = React.memo(function ChatMessage({
   suggestionsDisabled = false,
   retryDisabled = false,
   animationDelay = 0,
+  reveal = false,
+  onRevealProgress,
+  onRevealComplete,
 }: {
   messageId?: string;
   conversationId?: string;
@@ -606,8 +654,18 @@ export const ChatMessage = React.memo(function ChatMessage({
   suggestionsDisabled?: boolean;
   retryDisabled?: boolean;
   animationDelay?: number;
+  reveal?: boolean;
+  onRevealProgress?: () => void;
+  onRevealComplete?: (messageId: string) => void;
 }) {
   const isUser = role === "user";
+  const handleRevealComplete = React.useCallback(() => {
+    if (messageId) {
+      onRevealComplete?.(messageId);
+    }
+  }, [messageId, onRevealComplete]);
+  const revealed = useWordReveal(content, reveal && !isUser, onRevealProgress, handleRevealComplete);
+  const showAttachments = !isUser && revealed.isComplete;
   return (
     <div
       className={cn("assistant-message-in flex", isUser && "justify-end")}
@@ -629,7 +687,7 @@ export const ChatMessage = React.memo(function ChatMessage({
               : "py-1 text-foreground",
           )}
         >
-          {isUser ? content : <AssistantMarkdown content={content} />}
+          {isUser ? content : <AssistantMarkdown content={revealed.text} />}
         </div>
         {isUser && errorMessage && onRetry ? (
           <div className="mt-2 flex flex-col items-end gap-1">
@@ -646,17 +704,17 @@ export const ChatMessage = React.memo(function ChatMessage({
             </Button>
           </div>
         ) : null}
-        {!isUser && pendingAction ? (
+        {showAttachments && pendingAction ? (
           <PendingActionCard
             action={pendingAction}
           />
         ) : null}
-        {!isUser && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
-        {!isUser && sources?.length ? <MessageSources sources={sources} /> : null}
-        {!isUser && messageId && conversationId ? (
+        {showAttachments && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
+        {showAttachments && sources?.length ? <MessageSources sources={sources} /> : null}
+        {showAttachments && messageId && conversationId ? (
           <MessageFeedback conversationId={conversationId} messageId={messageId} feedback={feedback} />
         ) : null}
-        {!isUser && messageId && suggestedReplies.length > 0 && onSuggestedReply ? (
+        {showAttachments && messageId && suggestedReplies.length > 0 && onSuggestedReply ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {suggestedReplies.map((reply) => (
               <Button
@@ -677,6 +735,59 @@ export const ChatMessage = React.memo(function ChatMessage({
     </div>
   );
 });
+
+function useWordReveal(
+  content: string,
+  enabled: boolean,
+  onProgress?: () => void,
+  onComplete?: () => void,
+): { text: string; isComplete: boolean } {
+  const tokens = React.useMemo(() => content.match(/\s*\S+\s*/g) ?? [], [content]);
+  const [revealedCount, setRevealedCount] = React.useState(0);
+  const isComplete = !enabled || revealedCount >= tokens.length;
+
+  React.useEffect(() => {
+    if (isComplete) {
+      return;
+    }
+
+    const step = Math.max(1, Math.ceil(tokens.length / REVEAL_MAX_STEPS));
+    const timer = window.setInterval(() => {
+      setRevealedCount((count) => Math.min(tokens.length, count + step));
+    }, REVEAL_STEP_MS);
+    return () => window.clearInterval(timer);
+  }, [isComplete, tokens.length]);
+
+  React.useEffect(() => {
+    if (enabled && revealedCount > 0) {
+      onProgress?.();
+    }
+  }, [enabled, onProgress, revealedCount]);
+
+  React.useEffect(() => {
+    if (enabled && isComplete) {
+      onComplete?.();
+    }
+  }, [enabled, isComplete, onComplete]);
+
+  return { text: isComplete ? content : tokens.slice(0, revealedCount).join(""), isComplete };
+}
+
+export function TypingIndicator() {
+  return (
+    <div role="status" className="flex items-center gap-1 py-2">
+      <span className="sr-only">Assistant is thinking…</span>
+      {[0, 1, 2].map((dot) => (
+        <span
+          key={dot}
+          aria-hidden="true"
+          className="assistant-typing-dot size-1.5 rounded-full bg-muted-foreground"
+          style={{ animationDelay: `${dot * 160}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function CompactionDivider() {
   return (

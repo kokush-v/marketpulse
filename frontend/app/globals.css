@@ -156,11 +156,30 @@ a {
 	animation: assistant-message-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes assistant-typing-dot {
+	0%,
+	60%,
+	100% {
+		opacity: 0.35;
+		transform: translateY(0);
+	}
+
+	30% {
+		opacity: 1;
+		transform: translateY(-3px);
+	}
+}
+
+.assistant-typing-dot {
+	animation: assistant-typing-dot 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.assistant-widget-panel,
 	.assistant-widget-panel[data-state="open"],
 	.assistant-widget-panel[data-state="closed"],
-	.assistant-message-in {
+	.assistant-message-in,
+	.assistant-typing-dot {
 		animation: none;
 	}
 }

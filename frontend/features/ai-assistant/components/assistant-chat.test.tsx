@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { AssistantConversationResponse } from "@/src/api/generated/models/assistantConversationResponse";
 
@@ -8,7 +8,7 @@ jest.mock("react-markdown", () => ({
 }));
 jest.mock("remark-gfm", () => ({ __esModule: true, default: jest.fn() }));
 
-import { ChatMessage, CompactionDivider, getSuggestedReplyVisibleMessageIds } from "./assistant-chat";
+import { ChatMessage, CompactionDivider, TypingIndicator, getSuggestedReplyVisibleMessageIds } from "./assistant-chat";
 import { PendingActionCard } from "./pending-action-card";
 
 function conversationMessages(...messages: Array<Partial<AssistantConversationResponse["messages"][number]>>): AssistantConversationResponse["messages"] {
@@ -152,5 +152,63 @@ describe("ChatMessage", () => {
     render(<ChatMessage role="assistant" content="An earlier persisted answer." />);
 
     expect(screen.queryByRole("region", { name: "Sources" })).not.toBeInTheDocument();
+  });
+});
+
+describe("assistant reply animation", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("shows an accessible typing indicator", () => {
+    render(<TypingIndicator />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Assistant is thinking…");
+  });
+
+  it("reveals a new reply word by word and shows attachments afterwards", () => {
+    jest.useFakeTimers();
+    const onRevealComplete = jest.fn();
+    render(
+      <ChatMessage
+        messageId="message-1"
+        role="assistant"
+        content="Bitcoin trades at $100,000."
+        suggestedReplies={["Show chart"]}
+        onSuggestedReply={jest.fn()}
+        reveal
+        onRevealComplete={onRevealComplete}
+      />,
+    );
+
+    expect(screen.queryByText("Bitcoin trades at $100,000.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show chart" })).not.toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(60);
+    });
+    expect(screen.getByText("Bitcoin trades")).toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(screen.getByText("Bitcoin trades at $100,000.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show chart" })).toBeInTheDocument();
+    expect(onRevealComplete).toHaveBeenCalledWith("message-1");
+  });
+
+  it("renders a history reply immediately", () => {
+    render(
+      <ChatMessage
+        messageId="message-1"
+        role="assistant"
+        content="An earlier persisted answer."
+        suggestedReplies={["Show chart"]}
+        onSuggestedReply={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("An earlier persisted answer.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show chart" })).toBeInTheDocument();
   });
 });
