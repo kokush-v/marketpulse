@@ -68,6 +68,7 @@ class AssistantMessage(Base):
         server_default="[]",
     )
     chart_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    sources: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB, nullable=True)
     pending_action: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
     tool_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     tool_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)

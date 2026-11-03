@@ -17,10 +17,11 @@ from app.features.ai_assistant.tools.contracts import (
     ChartSeriesSummaryData,
     PriceChartData,
     PriceChartInput,
+    SourcesCapture,
     ToolErrorData,
     ToolResult,
 )
-from app.features.ai_assistant.tools.shared import safe_error
+from app.features.ai_assistant.tools.shared import add_marketpulse_source, is_stale, safe_error
 from app.features.market_data.service import MarketDataService, UpstreamMarketDataError
 
 
@@ -28,6 +29,7 @@ def build_chart_tools(
     *,
     market_data_service: MarketDataService,
     chart_payload_capture: ChartPayloadCapture | None,
+    sources_capture: SourcesCapture | None = None,
 ) -> list[BaseTool]:
     @tool("get_price_chart_data", args_schema=PriceChartInput)
     async def get_price_chart_data(
@@ -96,12 +98,17 @@ def build_chart_tools(
             )
             if chart_payload_capture is not None:
                 chart_payload_capture.payload = chart_payload
+            summaries = [series_summary(series) for series in chart_payload.series]
+            for summary in summaries:
+                add_marketpulse_source(
+                    sources_capture,
+                    f"{summary.name} ({summary.symbol}) price history",
+                    updated_at=summary.updated_at,
+                    stale=summary.stale,
+                )
             return ToolResult(
                 status="ok",
-                data=PriceChartData(
-                    period=chart_payload.period,
-                    series=[series_summary(series) for series in chart_payload.series],
-                ),
+                data=PriceChartData(period=chart_payload.period, series=summaries),
             )
         except UpstreamMarketDataError as error:
             return safe_error(error.message)
@@ -123,4 +130,6 @@ def series_summary(series: AssistantChartSeriesResponse) -> ChartSeriesSummaryDa
         low_price=min(prices),
         high_price=max(prices),
         change_percentage=round(change_percentage, 2),
+        updated_at=series.points[-1].time,
+        stale=is_stale(series.points[-1].time),
     )

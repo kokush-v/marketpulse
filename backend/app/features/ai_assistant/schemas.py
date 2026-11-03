@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 AssistantMessageRole = Literal["user", "assistant"]
 AssistantChartPeriod = Literal["24h", "7d", "30d", "1y"]
@@ -16,6 +16,7 @@ AssistantPendingActionType = Literal[
     "delete_alert",
 ]
 AssistantPendingActionStatus = Literal["pending", "confirmed", "cancelled", "expired"]
+AssistantMessageSourceKind = Literal["news", "marketpulse"]
 AssistantErrorCode = Literal[
     "assistant_not_configured",
     "assistant_configuration_error",
@@ -71,6 +72,15 @@ class AssistantPendingActionResponse(BaseModel):
     summary: AssistantPendingActionSummaryResponse
 
 
+class AssistantMessageSourceResponse(BaseModel):
+    kind: AssistantMessageSourceKind
+    label: str = Field(min_length=1, max_length=200)
+    title: str = Field(min_length=1, max_length=500)
+    url: str | None = None
+    updated_at: str | None = None
+    stale: bool = False
+
+
 class AssistantMessageResponse(BaseModel):
     id: UUID
     role: AssistantMessageRole
@@ -78,9 +88,15 @@ class AssistantMessageResponse(BaseModel):
     suggested_replies: list[str] = Field(default_factory=list)
     chart_payload: AssistantChartPayloadResponse | None = None
     pending_action: AssistantPendingActionResponse | None = None
+    sources: list[AssistantMessageSourceResponse] = Field(default_factory=list)
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def default_missing_sources(cls, sources: object) -> object:
+        return [] if sources is None else sources
 
 
 class AssistantConversationSummaryResponse(BaseModel):

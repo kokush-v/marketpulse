@@ -27,6 +27,7 @@ import {
   ContextMenuTrigger,
 } from "@/shared/components/ui/context-menu";
 import { cn } from "@/shared/lib/utils";
+import { MessageSources } from "./message-sources";
 import { PendingActionCard } from "./pending-action-card";
 import { PriceChartCard } from "./price-chart-card";
 
@@ -477,6 +478,7 @@ export function AssistantChat({
                   content={message.content}
                   chartPayload={message.chart_payload}
                   pendingAction={message.pending_action}
+                  sources={message.sources}
                   suggestedReplies={
                     hiddenSuggestedReplyMessageIds.has(message.id) || !visibleSuggestedReplyMessageIds.has(message.id)
                       ? EMPTY_SUGGESTED_REPLIES
@@ -571,6 +573,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   suggestedReplies = [],
   chartPayload,
   pendingAction,
+  sources,
   errorMessage,
   onSuggestedReply,
   onRetry,
@@ -585,6 +588,7 @@ export const ChatMessage = React.memo(function ChatMessage({
   suggestedReplies?: string[];
   chartPayload?: AssistantConversationResponse["messages"][number]["chart_payload"];
   pendingAction?: AssistantConversationResponse["messages"][number]["pending_action"];
+  sources?: AssistantConversationResponse["messages"][number]["sources"];
   errorMessage?: string;
   onSuggestedReply?: (messageId: string, reply: string) => void;
   onRetry?: () => void;
@@ -637,6 +641,7 @@ export const ChatMessage = React.memo(function ChatMessage({
           />
         ) : null}
         {!isUser && chartPayload ? <PriceChartCard chart={chartPayload} /> : null}
+        {!isUser && sources?.length ? <MessageSources sources={sources} /> : null}
         {!isUser && messageId && suggestedReplies.length > 0 && onSuggestedReply ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {suggestedReplies.map((reply) => (

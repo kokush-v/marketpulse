@@ -103,4 +103,32 @@ describe("ChatMessage", () => {
 
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("shows a sources block under an assistant message with sources", () => {
+    render(
+      <ChatMessage
+        role="assistant"
+        content="Bitcoin trades at $100,000."
+        sources={[
+          {
+            kind: "marketpulse",
+            label: "MarketPulse knowledge",
+            title: "Bitcoin (BTC) market data",
+            url: null,
+            updated_at: "2026-11-03T08:00:00Z",
+            stale: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "Sources" })).toBeInTheDocument();
+  });
+
+  it("shows no sources block for an assistant message without sources", () => {
+    render(<ChatMessage role="assistant" content="I can help with MarketPulse data." sources={[]} />);
+    render(<ChatMessage role="assistant" content="An earlier persisted answer." />);
+
+    expect(screen.queryByRole("region", { name: "Sources" })).not.toBeInTheDocument();
+  });
 });

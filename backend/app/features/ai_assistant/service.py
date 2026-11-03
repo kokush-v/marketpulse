@@ -44,7 +44,7 @@ from app.features.ai_assistant.schemas import (
     SendAssistantMessageRequest,
     UpdateAssistantConversationRequest,
 )
-from app.features.ai_assistant.tools import ChartPayloadCapture, build_read_tools
+from app.features.ai_assistant.tools import ChartPayloadCapture, SourcesCapture, build_read_tools
 from app.features.alerts.service import AlertService, AlertServiceError
 from app.features.auth.models import User
 from app.features.market_data.service import MarketDataService
@@ -297,6 +297,11 @@ another operation."""
                 if response.pending_action is not None
                 else None
             ),
+            sources=(
+                [source.model_dump(mode="json") for source in response.sources]
+                if response.sources
+                else None
+            ),
         )
         if response.pending_action is not None:
             action = await self.repository.get_pending_action_for_user(
@@ -419,6 +424,7 @@ another operation."""
             self._model = model
             chart_payload_capture = ChartPayloadCapture()
             pending_action_capture = PendingActionCapture()
+            sources_capture = SourcesCapture()
             action_service = self._action_service()
             graph = AssistantGraph(
                 model,
@@ -432,9 +438,11 @@ another operation."""
                     action_service=action_service,
                     chart_payload_capture=chart_payload_capture,
                     pending_action_capture=pending_action_capture,
+                    sources_capture=sources_capture,
                 ),
                 chart_payload_getter=lambda: chart_payload_capture.payload,
                 pending_action_getter=lambda: pending_action_capture.pending_action,
+                sources_getter=lambda: sources_capture.sources,
             )
             graph_messages = [
                 HumanMessage(content=message.content)

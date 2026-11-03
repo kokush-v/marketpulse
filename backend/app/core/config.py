@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     assistant_max_tool_calls: int = 4
     assistant_max_context_messages: int = 10
     assistant_max_context_characters: int = 12_000
+    assistant_market_data_max_age_seconds: int = 900
     telegram_bot_token: str = "replace-me"
     telegram_bot_username: str = "marketpulse_bot"
     telegram_link_token_ttl_seconds: int = 900

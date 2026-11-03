@@ -87,6 +87,7 @@ class AssistantRepository:
         suggested_replies: list[str] | None = None,
         chart_payload: dict[str, object] | None = None,
         pending_action: dict[str, object] | None = None,
+        sources: list[dict[str, object]] | None = None,
         initial_title: str | None = None,
     ) -> AssistantMessage:
         await self.session.refresh(conversation, with_for_update=True)
@@ -104,6 +105,7 @@ class AssistantRepository:
             suggested_replies=suggested_replies or [],
             chart_payload=chart_payload,
             pending_action=pending_action,
+            sources=sources,
         )
         self.session.add(message)
         if role == "user" and last_sequence == -1 and conversation.title is None:

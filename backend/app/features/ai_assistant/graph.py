@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, Literal, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, field_validator
 from app.core.config import Settings, settings
 from app.features.ai_assistant.schemas import (
     AssistantChartPayloadResponse,
+    AssistantMessageSourceResponse,
     AssistantPendingActionResponse,
 )
 
@@ -50,6 +51,14 @@ To update, pause, resume, or delete an existing alert, call the matching propose
 coin the user named, adding the condition only when the user mentioned it. Never ask the user to
 describe an alert that a tool can identify. If the tool reports several matching alerts, list them
 and ask which one the user means. Never mention alerts that a tool did not return.
+State facts and figures, such as prices, market data, news, and the user's watchlist or alerts,
+only from tool results in this conversation, never from your own general knowledge. When the
+tools return no data or an error, or a question needs information outside MarketPulse data, say
+clearly that you cannot answer it instead of answering from general knowledge. You may still
+describe what MarketPulse and this assistant can do.
+When a tool result is marked stale, still give the available figures but warn explicitly that
+the data may be outdated and the actual values may differ.
+Do not write a list of sources or source links; the interface shows the sources of each answer.
 Use concise prose and Markdown lists by default. Use a Markdown table only when the user asks
 for one or when comparing multiple same-shaped records is materially clearer. Do not use a table
 for a single coin summary, news explanation, or ordinary response merely because tool data is
@@ -182,6 +191,7 @@ class AssistantGraphResponse:
     suggested_replies: list[str]
     chart_payload: AssistantChartPayloadResponse | None = None
     pending_action: AssistantPendingActionResponse | None = None
+    sources: list[AssistantMessageSourceResponse] = field(default_factory=list)
 
 
 def build_groq_model(config: Settings = settings) -> ChatGroq:
@@ -207,6 +217,7 @@ class AssistantGraph:
         tools: list[BaseTool] | None = None,
         chart_payload_getter: Callable[[], AssistantChartPayloadResponse | None] | None = None,
         pending_action_getter: Callable[[], AssistantPendingActionResponse | None] | None = None,
+        sources_getter: Callable[[], list[AssistantMessageSourceResponse]] | None = None,
         max_tool_calls: int = settings.assistant_max_tool_calls,
         max_context_messages: int = settings.assistant_max_context_messages,
         max_context_characters: int = settings.assistant_max_context_characters,
@@ -217,6 +228,7 @@ class AssistantGraph:
         self.max_context_characters = max_context_characters
         self.chart_payload_getter = chart_payload_getter
         self.pending_action_getter = pending_action_getter
+        self.sources_getter = sources_getter
         self.suggestion_model = model
         self.model = model.bind_tools(self.tools) if self.tools else model
         self.tool_node = ToolNode(self.tools) if self.tools else None
@@ -285,6 +297,7 @@ class AssistantGraph:
             suggested_replies=suggested_replies,
             chart_payload=self.chart_payload_getter() if self.chart_payload_getter else None,
             pending_action=self.pending_action_getter() if self.pending_action_getter else None,
+            sources=list(self.sources_getter()) if self.sources_getter else [],
         )
 
     async def _generate_suggested_replies(

@@ -45,7 +45,9 @@ def tool_map() -> dict[str, Any]:
         return SimpleNamespace(items=[assets[query.lower()]] if query.lower() in assets else [])
 
     market_data_service = SimpleNamespace(
-        get_market_overview=lambda: _async(SimpleNamespace(featured_assets=[asset])),
+        get_market_overview=lambda: _async(
+            SimpleNamespace(generated_at="2026-08-29T00:00:00Z", featured_assets=[asset])
+        ),
         search_assets=search_assets,
         get_historical_prices=lambda **_: _async(
             SimpleNamespace(
@@ -199,6 +201,8 @@ async def test_price_chart_tool_persists_safe_chart_payload_without_provider_ids
             "low_price": 101_000.0,
             "high_price": 101_000.0,
             "change_percentage": 0.0,
+            "updated_at": "2026-08-29T00:00:00Z",
+            "stale": True,
         }
     ]
     assert "points" not in str(result)

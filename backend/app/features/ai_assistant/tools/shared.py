@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 
+from app.core.config import settings
 from app.features.ai_assistant.actions import PendingActionCapture
-from app.features.ai_assistant.schemas import AssistantPendingActionResponse
+from app.features.ai_assistant.schemas import (
+    AssistantMessageSourceResponse,
+    AssistantPendingActionResponse,
+)
 from app.features.ai_assistant.tools.contracts import (
     AlertClarificationData,
     AlertData,
     AssetClarificationData,
     AssetData,
     PendingProposalData,
+    SourcesCapture,
     ToolErrorData,
     ToolResult,
 )
@@ -18,6 +24,50 @@ from app.features.alerts.service import AlertService
 from app.features.auth.models import User
 from app.features.watchlists.schemas import WatchlistAssetResponse, WatchlistAssetSearchResult
 from app.features.watchlists.service import WatchlistService
+
+MARKETPULSE_SOURCE_LABEL = "MarketPulse knowledge"
+
+
+def is_stale(
+    updated_at: str | None,
+    *,
+    max_age_seconds: int | None = None,
+    now: datetime | None = None,
+) -> bool:
+    """Market data is stale when it is older than the threshold or its update time is unknown."""
+    if not updated_at:
+        return True
+    try:
+        timestamp = datetime.fromisoformat(updated_at)
+    except ValueError:
+        return True
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=UTC)
+    max_age = (
+        settings.assistant_market_data_max_age_seconds
+        if max_age_seconds is None
+        else max_age_seconds
+    )
+    return ((now or datetime.now(UTC)) - timestamp).total_seconds() > max_age
+
+
+def add_marketpulse_source(
+    capture: SourcesCapture | None,
+    title: str,
+    *,
+    updated_at: str | None = None,
+    stale: bool = False,
+) -> None:
+    if capture is not None:
+        capture.add(
+            AssistantMessageSourceResponse(
+                kind="marketpulse",
+                label=MARKETPULSE_SOURCE_LABEL,
+                title=title,
+                updated_at=updated_at,
+                stale=stale,
+            )
+        )
 
 
 def safe_error(message: str) -> ToolResult[ToolErrorData]:

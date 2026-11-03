@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.features.ai_assistant.schemas import (
     AssistantChartPayloadResponse,
+    AssistantMessageSourceResponse,
     AssistantPendingActionSummaryResponse,
     AssistantPendingActionType,
 )
@@ -158,6 +159,22 @@ class ChartPayloadCapture:
     payload: AssistantChartPayloadResponse | None = None
 
 
+@dataclass
+class SourcesCapture:
+    """Sources of the data returned by tools during one response, deduplicated."""
+
+    sources: list[AssistantMessageSourceResponse] = field(default_factory=list)
+
+    def add(self, source: AssistantMessageSourceResponse) -> None:
+        key = source_key(source)
+        if all(source_key(existing) != key for existing in self.sources):
+            self.sources.append(source)
+
+
+def source_key(source: AssistantMessageSourceResponse) -> tuple[str, str | None]:
+    return (source.kind, source.url if source.kind == "news" else source.title)
+
+
 class CoinSummary(BaseModel):
     symbol: str
     name: str
@@ -171,6 +188,8 @@ class CoinOverviewLookupData(BaseModel):
     coin: CoinSummary | None = None
     message: str | None = None
     matches: list[CoinSummary] = Field(default_factory=list)
+    updated_at: str | None = None
+    stale: bool = False
 
 
 class NewsArticleData(BaseModel):
@@ -214,6 +233,8 @@ class ChartSeriesSummaryData(BaseModel):
     low_price: float
     high_price: float
     change_percentage: float
+    updated_at: str | None = None
+    stale: bool = False
 
 
 class PriceChartData(BaseModel):

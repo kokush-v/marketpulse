@@ -7,6 +7,7 @@ and they record every proposal and attempted mutation for confirmation-boundary 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID, uuid4
@@ -51,6 +52,8 @@ COINS: list[dict[str, Any]] = [
     },
 ]
 WATCHLIST_ASSET_IDS = ("bitcoin", "ethereum", "solana")
+MARKET_DATA_AGE = timedelta(hours=5)
+"""Older than the freshness threshold, so coin overview results are marked stale."""
 ALERTS: list[dict[str, Any]] = [
     {
         "asset_id": "bitcoin",
@@ -113,6 +116,7 @@ class EvalRecorder:
 class StubMarketDataService:
     async def get_market_overview(self) -> SimpleNamespace:
         return SimpleNamespace(
+            generated_at=(datetime.now(UTC) - MARKET_DATA_AGE).isoformat(),
             featured_assets=[
                 SimpleNamespace(
                     id=coin["asset_id"],
@@ -124,7 +128,7 @@ class StubMarketDataService:
                     market_cap_rank=coin["market_cap_rank"],
                 )
                 for coin in COINS
-            ]
+            ],
         )
 
     async def search_assets(self, query: str) -> SimpleNamespace:

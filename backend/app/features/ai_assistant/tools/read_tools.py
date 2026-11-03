@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from langchain_core.tools import BaseTool, tool
 
+from app.features.ai_assistant.schemas import AssistantMessageSourceResponse
 from app.features.ai_assistant.tools.contracts import (
     AlertData,
     AlertsData,
@@ -11,11 +12,12 @@ from app.features.ai_assistant.tools.contracts import (
     CoinQueryInput,
     CoinSummary,
     NewsArticleData,
+    SourcesCapture,
     ToolErrorData,
     ToolResult,
     WatchlistAssetsData,
 )
-from app.features.ai_assistant.tools.shared import safe_error
+from app.features.ai_assistant.tools.shared import add_marketpulse_source, is_stale, safe_error
 from app.features.alerts.service import AlertService, AlertServiceError
 from app.features.auth.models import User
 from app.features.market_data.service import MarketDataService, UpstreamMarketDataError
@@ -30,6 +32,7 @@ def build_read_tools(
     news_service: NewsService,
     watchlist_service: WatchlistService,
     alert_service: AlertService,
+    sources_capture: SourcesCapture | None = None,
 ) -> list[BaseTool]:
     @tool("get_coin_overview", args_schema=CoinQueryInput)
     async def get_coin_overview(
@@ -49,6 +52,13 @@ def build_read_tools(
                 None,
             )
             if asset is not None:
+                stale = is_stale(overview.generated_at)
+                add_marketpulse_source(
+                    sources_capture,
+                    f"{asset.name} ({asset.symbol}) market data",
+                    updated_at=overview.generated_at,
+                    stale=stale,
+                )
                 return ToolResult(
                     status="ok",
                     data=CoinOverviewLookupData(
@@ -59,11 +69,20 @@ def build_read_tools(
                             current_price=asset.current_price,
                             price_change_percentage_24h=asset.price_change_percentage_24h,
                             market_cap_rank=asset.market_cap_rank,
-                        )
+                        ),
+                        updated_at=overview.generated_at,
+                        stale=stale,
                     ),
                 )
 
             matches = await market_data_service.search_assets(normalized_query)
+            # Search results carry no update time, so they are always treated as stale.
+            for item in matches.items[:5]:
+                add_marketpulse_source(
+                    sources_capture,
+                    f"{item.name} ({item.symbol}) market data",
+                    stale=True,
+                )
             return ToolResult(
                 status="not_found" if not matches.items else "partial_match",
                 data=CoinOverviewLookupData(
@@ -80,6 +99,7 @@ def build_read_tools(
                         )
                         for item in matches.items[:5]
                     ],
+                    stale=bool(matches.items),
                 ),
             )
         except UpstreamMarketDataError as error:
@@ -90,6 +110,17 @@ def build_read_tools(
         """Get the latest available news for a named cryptocurrency."""
         try:
             news = await news_service.search_coin_news(query)
+            if sources_capture is not None:
+                for article in news.articles[:5]:
+                    sources_capture.add(
+                        AssistantMessageSourceResponse(
+                            kind="news",
+                            label=article.source,
+                            title=article.title,
+                            url=article.url,
+                            updated_at=article.published_at,
+                        )
+                    )
             return ToolResult(
                 status="ok",
                 data=CoinNewsData(
@@ -113,6 +144,8 @@ def build_read_tools(
         """List the authenticated user's saved watchlist assets."""
         try:
             watchlist = await watchlist_service.get_watchlist(user)
+            if watchlist.assets:
+                add_marketpulse_source(sources_capture, "Your watchlist")
             return ToolResult(
                 status="ok",
                 data=WatchlistAssetsData(
@@ -130,6 +163,8 @@ def build_read_tools(
         """List the authenticated user's current price and news alerts."""
         try:
             alerts = await alert_service.list_alerts(user)
+            if alerts.items:
+                add_marketpulse_source(sources_capture, "Your alerts")
             return ToolResult(
                 status="ok",
                 data=AlertsData(
