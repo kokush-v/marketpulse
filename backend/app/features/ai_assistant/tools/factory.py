@@ -5,6 +5,7 @@ from langchain_core.tools import BaseTool
 from app.features.ai_assistant.actions import AssistantActionService, PendingActionCapture
 from app.features.ai_assistant.models import AssistantConversation
 from app.features.ai_assistant.tools.alert_tools import build_alert_tools
+from app.features.ai_assistant.tools.calculation_tools import build_calculation_tools
 from app.features.ai_assistant.tools.chart_tools import build_chart_tools
 from app.features.ai_assistant.tools.contracts import ChartPayloadCapture, SourcesCapture
 from app.features.ai_assistant.tools.read_tools import build_read_tools as build_base_read_tools
@@ -42,6 +43,12 @@ def build_read_tools(
         *build_chart_tools(
             market_data_service=market_data_service,
             chart_payload_capture=chart_payload_capture,
+            sources_capture=sources_capture,
+        ),
+        *build_calculation_tools(
+            user=user,
+            market_data_service=market_data_service,
+            alert_service=alert_service,
             sources_capture=sources_capture,
         ),
         *build_watchlist_tools(

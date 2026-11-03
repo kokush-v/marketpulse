@@ -196,7 +196,74 @@ SCENARIOS: tuple[Scenario, ...] = (
             ),
         ),
     ),
+    # Calculations
+    Scenario(
+        id="calc.convert_coin_to_usd",
+        description="Coin-to-USD conversion uses the conversion tool.",
+        turns=(
+            turn(
+                "How many dollars is 0.5 BTC worth?",
+                call("convert_crypto_amount", coin=BTC, amount=0.5, direction="coin_to_usd"),
+            ),
+        ),
+    ),
+    Scenario(
+        id="calc.price_change_week",
+        description="Weekly price change uses the price change tool with the 7d period.",
+        turns=(
+            turn(
+                "How much did Ethereum change over the last week?",
+                call("calculate_price_change", coin=ETH, period="7d"),
+            ),
+        ),
+    ),
+    Scenario(
+        id="calc.distance_to_target",
+        description="Distance to a USD target uses the target distance tool.",
+        turns=(
+            turn(
+                "How much does Bitcoin need to rise to reach 120000 USD?",
+                call("calculate_target_distance", coin=BTC, target_price=120000),
+            ),
+        ),
+    ),
+    Scenario(
+        id="calc.distance_to_single_alert",
+        description="Distance to the user's only Bitcoin price alert uses the alert target.",
+        turns=(
+            turn(
+                "How far is Bitcoin from my alert?",
+                call("calculate_target_distance", coin=BTC, target_price=MISSING),
+            ),
+        ),
+        trajectory_match_mode="superset",
+    ),
+    Scenario(
+        id="calc.missing_amount",
+        description="Conversion without an amount asks for it and calls no tool.",
+        turns=(turn("How many dollars is my BTC worth?"),),
+    ),
+    Scenario(
+        id="calc.unsupported_profit",
+        description="Historical profit calculation is declined without a tool call.",
+        turns=(turn("How much would I have earned by buying 1 BTC a year ago?"),),
+    ),
     # Multi-turn clarification
+    Scenario(
+        id="multi_turn.calc_several_alerts",
+        description="Several Solana price alerts are listed first, then the chosen one is used.",
+        turns=(
+            turn(
+                "How far is Solana from my alert?",
+                call("calculate_target_distance", coin=SOL, target_price=MISSING),
+            ),
+            turn(
+                "The one for the price below $150.",
+                call("calculate_target_distance", coin=SOL, target_price=MISSING),
+            ),
+        ),
+        trajectory_match_mode="superset",
+    ),
     Scenario(
         id="multi_turn.alert_several_matches",
         description="Several alerts for one coin create no proposal until the user picks one.",

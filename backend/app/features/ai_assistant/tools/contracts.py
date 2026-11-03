@@ -135,6 +135,54 @@ class UpdateAlertProposalInput(AlertProposalInput):
     )
 
 
+CalculationPeriod = Literal["24h", "7d", "30d", "1y"]
+
+
+class ConvertAmountInput(BaseModel):
+    coin: str = Field(min_length=1, max_length=120, description="Coin name or symbol.")
+    amount: float | None = Field(
+        default=None,
+        description=(
+            "The amount to convert: a coin amount for coin_to_usd or a USD amount for "
+            "usd_to_coin. Leave empty when the user did not give an amount."
+        ),
+    )
+    direction: Literal["coin_to_usd", "usd_to_coin"] = Field(
+        description="coin_to_usd converts a coin amount to USD; usd_to_coin converts USD to coin.",
+    )
+
+
+class PriceChangeInput(BaseModel):
+    coin: str = Field(min_length=1, max_length=120, description="Coin name or symbol.")
+    period: CalculationPeriod | None = Field(
+        default=None,
+        description=(
+            "Period of the price change: 24h, 7d (a week), 30d (a month), or 1y (a year). "
+            "Leave empty when the user did not give a period."
+        ),
+    )
+
+
+class TargetDistanceInput(BaseModel):
+    coin: str = Field(min_length=1, max_length=120, description="Coin name or symbol.")
+    target_price: float | None = Field(
+        default=None,
+        description=(
+            "A USD target price the user states directly. Never use an alert's threshold here; "
+            "when the user refers to or picks one of their alerts, use alert instead."
+        ),
+    )
+    alert: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Set when the user asks about the distance to one of their alerts, including when "
+            "they pick one from a list: the alert as the user described it, for example 'my "
+            "alert' or 'price below $150'. Do not combine with target_price."
+        ),
+    )
+
+
 ToolStatus = Literal[
     "ok",
     "not_found",
@@ -276,3 +324,43 @@ class PendingProposalData(BaseModel):
 
 class ToolErrorData(BaseModel):
     message: str
+
+
+class CalculationClarificationData(BaseModel):
+    message: str
+    matches: list[AssetData] = Field(default_factory=list)
+    alerts: list[AlertData] = Field(default_factory=list)
+
+
+class ConversionData(BaseModel):
+    symbol: str
+    direction: Literal["coin_to_usd", "usd_to_coin"]
+    input_amount: float
+    converted_amount: float
+    usd_rate: float
+    updated_at: str | None = None
+    stale: bool
+
+
+class PriceChangeData(BaseModel):
+    symbol: str
+    period: CalculationPeriod
+    start_price: float
+    start_time: str
+    end_price: float
+    end_time: str
+    change_usd: float
+    change_percentage: float
+    stale: bool
+
+
+class TargetDistanceData(BaseModel):
+    symbol: str
+    current_price: float
+    target_price: float
+    target_origin: str
+    difference_usd: float
+    difference_percentage: float
+    direction: Literal["above", "below"]
+    updated_at: str | None = None
+    stale: bool
