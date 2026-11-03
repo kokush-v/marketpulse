@@ -77,8 +77,9 @@ class AlertProposalInput(BaseModel):
         default="one_time",
         description=(
             "The internal alert timing: one_time triggers once, while daily_recurring can trigger "
-            "again on later days within its date range. Keep these values internal and describe "
-            "the timing naturally to the user."
+            "again on later days within its date range. Use one_time unless the user asks for the "
+            "alert to repeat daily; do not ask the user about timing otherwise. Keep these values "
+            "internal and describe the timing naturally to the user."
         ),
     )
     recurring_start_date: date | None = Field(
@@ -93,8 +94,12 @@ class AlertProposalInput(BaseModel):
         default=None,
         description=(
             "How to interpret the price threshold: currency is a fixed USD price and percent is "
-            "a percentage price change. Keep these values internal and use natural wording with "
-            "the user. This is not applicable to news alerts."
+            "a percentage price change. A threshold stated with $, USD, or dollars is currency; "
+            "a threshold stated with % or percent is percent. Set it only from a unit the user "
+            "stated; never infer it from the size of the number. When the threshold has no "
+            "unit, ask the user which one they mean instead of calling this tool. Keep these "
+            "values internal and use natural wording with the user. This is not applicable to "
+            "news alerts."
         ),
     )
     threshold_value: float | None = Field(
@@ -112,8 +117,8 @@ class AlertTargetInput(BaseModel):
         min_length=1,
         max_length=200,
         description=(
-            "A user-facing description that unambiguously identifies one of the user's alerts, "
-            "such as its coin and condition."
+            "The coin name or symbol of the user's alert, optionally followed by its condition "
+            "when the user mentioned it, for example 'Bitcoin' or 'Solana price above $200'."
         ),
     )
 
@@ -123,8 +128,8 @@ class UpdateAlertProposalInput(AlertProposalInput):
         min_length=1,
         max_length=200,
         description=(
-            "A user-facing description that unambiguously identifies the alert to update, such "
-            "as its coin and current condition."
+            "The coin name or symbol of the alert to update, optionally followed by its current "
+            "condition when the user mentioned it, for example 'Bitcoin'."
         ),
     )
 

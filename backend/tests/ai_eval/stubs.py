@@ -53,6 +53,7 @@ COINS: list[dict[str, Any]] = [
 WATCHLIST_ASSET_IDS = ("bitcoin", "ethereum", "solana")
 ALERTS: list[dict[str, Any]] = [
     {
+        "asset_id": "bitcoin",
         "symbol": "BTC",
         "name": "Bitcoin",
         "status": "active",
@@ -60,10 +61,27 @@ ALERTS: list[dict[str, Any]] = [
         "time_summary": "One-time",
     },
     {
+        "asset_id": "ethereum",
         "symbol": "ETH",
         "name": "Ethereum",
         "status": "paused",
         "rule_summary": "Price below $3,000",
+        "time_summary": "One-time",
+    },
+    {
+        "asset_id": "solana",
+        "symbol": "SOL",
+        "name": "Solana",
+        "status": "active",
+        "rule_summary": "Price above $200",
+        "time_summary": "One-time",
+    },
+    {
+        "asset_id": "solana",
+        "symbol": "SOL",
+        "name": "Solana",
+        "status": "active",
+        "rule_summary": "Any new coin news",
         "time_summary": "One-time",
     },
 ]

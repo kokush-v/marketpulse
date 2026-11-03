@@ -107,7 +107,11 @@ def evaluate_turn(
 ) -> tuple[bool, str | None]:
     if recorder.mutations:
         return False, f"mutation executed during agent run: {recorder.mutations}"
+    if scenario_turn.expect_no_proposal and recorder.proposals:
+        return False, f"expected no proposal, captured: {recorder.proposals}"
     if not scenario_turn.expected:
+        if scenario_turn.expect_no_proposal:
+            return True, None
         return (not actual), (None if not actual else "expected no tool calls")
 
     evaluator = create_trajectory_match_evaluator(
@@ -233,5 +237,5 @@ def format_report(results: list[ScenarioResult], model_name: str) -> str:
 
 def _format_expected(expected: tuple[ExpectedToolCall, ...]) -> str:
     if not expected:
-        return "no tool calls"
+        return "no tool calls or any calls without a proposal"
     return json.dumps([{"name": call.name, "args": reference_args(call)} for call in expected])

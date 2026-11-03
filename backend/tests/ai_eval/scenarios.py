@@ -167,7 +167,31 @@ SCENARIOS: tuple[Scenario, ...] = (
         turns=(turn("Delete my Ethereum alert.", call("propose_delete_alert")),),
         trajectory_match_mode="superset",
     ),
+    Scenario(
+        id="alerts.threshold_without_unit",
+        description="Threshold without a unit asks whether it is a price or a percentage.",
+        turns=(turn("Create an alert for when Bitcoin goes above 110000."),),
+    ),
+    Scenario(
+        id="alerts.news_without_timing",
+        description="News alert without timing is proposed without asking about timing.",
+        turns=(
+            turn(
+                "Let me know when there is new Ethereum news.",
+                call("propose_create_alert", asset=ETH, scenario="coin_news"),
+            ),
+        ),
+    ),
     # Multi-turn clarification
+    Scenario(
+        id="multi_turn.alert_several_matches",
+        description="Several alerts for one coin create no proposal until the user picks one.",
+        turns=(
+            Turn(user="Pause my Solana alert.", expect_no_proposal=True),
+            turn("The one for the price above $200.", call("propose_pause_alert")),
+        ),
+        trajectory_match_mode="superset",
+    ),
     Scenario(
         id="multi_turn.alert_missing_threshold",
         description="Alert without a threshold asks first, then proposes with the follow-up.",

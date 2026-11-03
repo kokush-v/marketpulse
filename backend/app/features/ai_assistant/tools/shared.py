@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from app.features.ai_assistant.actions import PendingActionCapture
 from app.features.ai_assistant.schemas import AssistantPendingActionResponse
 from app.features.ai_assistant.tools.contracts import (
@@ -90,18 +92,46 @@ async def resolve_alert(
     query: str,
 ) -> tuple[AlertResponse | None, ToolResult[AlertClarificationData] | None]:
     alerts = await alert_service.list_alerts(user)
-    matches = [
-        item
-        for item in alerts.items
-        if query.casefold()
-        in {item.symbol.casefold(), item.name.casefold(), item.rule_summary.casefold()}
-    ]
+    matches = [item for item in alerts.items if alert_coin_matches(item, query)]
+    if len(matches) > 1:
+        normalized_query = normalize_alert_text(query)
+        by_rule = [
+            item for item in matches if normalize_alert_text(item.rule_summary) in normalized_query
+        ]
+        if len(by_rule) == 1:
+            matches = by_rule
     if len(matches) == 1:
         return matches[0], None
-    return None, ToolResult(
+    if matches:
+        return None, alert_clarification(
+            "Several of the user's alerts match. Ask which one they mean.",
+            matches,
+        )
+    return None, alert_clarification(
+        "No matching alert exists. Only the alerts listed here belong to the user.",
+        alerts.items,
+    )
+
+
+def alert_coin_matches(alert: AlertResponse, query: str) -> bool:
+    return any(
+        re.search(rf"(?<!\w){re.escape(term)}(?!\w)", query, flags=re.IGNORECASE)
+        for term in (alert.symbol, alert.name, alert.asset_id)
+    )
+
+
+def normalize_alert_text(text: str) -> str:
+    return " ".join(text.casefold().replace("$", "").replace(",", "").split())
+
+
+def alert_clarification(
+    message: str,
+    alerts: list[AlertResponse],
+) -> ToolResult[AlertClarificationData]:
+    return ToolResult(
         status="clarification_needed",
         data=AlertClarificationData(
-            message="Please clarify which alert you mean.",
+            message=message,
             matches=[
                 AlertData(
                     coin=f"{item.name} ({item.symbol})",
@@ -109,7 +139,7 @@ async def resolve_alert(
                     rule=item.rule_summary,
                     schedule=item.time_summary,
                 )
-                for item in matches[:5]
+                for item in alerts[:5]
             ],
         ),
     )

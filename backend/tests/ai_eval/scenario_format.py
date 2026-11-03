@@ -37,7 +37,9 @@ class ExpectedToolCall:
 class Turn:
     user: str
     expected: tuple[ExpectedToolCall, ...] = ()
-    """Empty means the agent must not call any tool in this turn."""
+    """Empty means no tool calls are allowed in this turn, unless expect_no_proposal is set."""
+    expect_no_proposal: bool = False
+    """Fail the turn when a proposal was captured; with no expected calls, accept any tool calls."""
 
 
 @dataclass(frozen=True)
