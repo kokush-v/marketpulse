@@ -36,7 +36,6 @@ from app.features.ai_assistant.graph import (
     AssistantGraphResponse,
     build_context_messages,
     build_groq_model,
-    select_recent_messages,
 )
 from app.features.ai_assistant.models import AssistantConversation, AssistantMessage
 from app.features.ai_assistant.repository import AssistantRepository
@@ -490,20 +489,20 @@ another operation."""
         *,
         pending_content: str,
     ) -> None:
-        history = [message for message in messages if message.role in {"user", "assistant"}]
-        window = select_recent_messages(
-            [*self._model_history(history), HumanMessage(content=pending_content)],
-            max_messages=settings.assistant_max_context_messages,
-            max_characters=settings.assistant_max_context_characters,
+        context = self._unsummarized_messages(conversation, messages)
+        context_characters = sum(len(message.content) for message in context) + len(pending_content)
+        # The pending user message is not stored yet but counts toward the limits.
+        if (
+            len(context) + 1 <= settings.assistant_max_context_messages
+            and context_characters <= settings.assistant_max_context_characters
+        ):
+            return
+        # The latest stored exchange stays verbatim; everything before it is summarized.
+        latest_user_index = next(
+            (index for index in range(len(context) - 1, -1, -1) if context[index].role == "user"),
+            len(context),
         )
-        # The window always ends with the pending user message, which is not stored yet.
-        out_of_window = history[: len(history) - (len(window) - 1)]
-        summarized_through = conversation.summarized_through_sequence
-        new_messages = [
-            message
-            for message in out_of_window
-            if summarized_through is None or message.sequence > summarized_through
-        ]
+        new_messages = context[:latest_user_index]
         if not new_messages:
             return
         try:
@@ -520,6 +519,20 @@ another operation."""
             summarized_through_sequence=new_messages[-1].sequence,
             marker_content=self._COMPACTION_MARKER_CONTENT,
         )
+
+    @staticmethod
+    def _unsummarized_messages(
+        conversation: AssistantConversation,
+        messages: list[AssistantMessage],
+    ) -> list[AssistantMessage]:
+        """User and assistant messages recorded after the last compaction."""
+        summarized_through = conversation.summarized_through_sequence
+        return [
+            message
+            for message in messages
+            if message.role in {"user", "assistant"}
+            and (summarized_through is None or message.sequence > summarized_through)
+        ]
 
     async def _summarize_messages(
         self,
@@ -597,6 +610,8 @@ another operation."""
                 sources_getter=lambda: sources_capture.sources,
                 context_messages=context_messages,
             )
+            if conversation is not None:
+                messages = self._unsummarized_messages(conversation, messages)
             graph_messages = self._model_history(messages)
             if pending_content is not None:
                 graph_messages.append(HumanMessage(content=pending_content))

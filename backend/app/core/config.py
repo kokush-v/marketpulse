@@ -18,14 +18,14 @@ class Settings(BaseSettings):
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     market_data_api_base_url: str = "http://localhost:3001"
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     groq_timeout_seconds: float = 30.0
     groq_max_retries: int = 2
     groq_max_tokens: int = 1024
     assistant_eval_groq_model: str | None = None
     assistant_max_tool_calls: int = 4
-    assistant_max_context_messages: int = 10
-    assistant_max_context_characters: int = 12_000
+    assistant_max_context_messages: int = 30
+    assistant_max_context_characters: int = 40_000
     assistant_market_data_max_age_seconds: int = 900
     telegram_bot_token: str = "replace-me"
     telegram_bot_username: str = "marketpulse_bot"

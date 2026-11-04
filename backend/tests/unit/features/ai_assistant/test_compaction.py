@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from app.features.ai_assistant import service as service_module
 from app.features.ai_assistant.graph import AssistantGraph, AssistantGraphResponse
 from app.features.ai_assistant.schemas import (
     AssistantConversationResponse,
@@ -46,6 +47,18 @@ class RecordingModel:
 
     async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
         self.messages = messages
+        return AIMessage(content="Answer")
+
+
+class RecordingCallsModel:
+    def __init__(self) -> None:
+        self.calls: list[list[BaseMessage]] = []
+
+    def bind_tools(self, _tools: object) -> RecordingCallsModel:
+        return self
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
+        self.calls.append(messages)
         return AIMessage(content="Answer")
 
 
@@ -110,10 +123,17 @@ async def _send(service: AssistantService, conversation: Any) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def context_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(service_module.settings, "assistant_max_context_messages", 10)
+    monkeypatch.setattr(service_module.settings, "assistant_max_context_characters", 12_000)
+
+
 @pytest.mark.asyncio
-async def test_no_compaction_while_the_conversation_fits_the_window() -> None:
+async def test_no_compaction_while_the_context_fits_the_limits() -> None:
     model = SummaryModel()
     conversation = _conversation()
+    # 9 stored messages plus the new one reach but do not exceed the 10-message limit.
     service = _service(model, _messages(9), conversation)
 
     await _send(service, conversation)
@@ -123,22 +143,23 @@ async def test_no_compaction_while_the_conversation_fits_the_window() -> None:
 
 
 @pytest.mark.asyncio
-async def test_compaction_summarizes_messages_that_left_the_window() -> None:
+async def test_compaction_summarizes_all_but_the_latest_exchange() -> None:
     model = SummaryModel()
     conversation = _conversation()
-    # 12 stored messages plus the new one: the 10-message window keeps 9 stored messages.
-    service = _service(model, _messages(12), conversation)
+    # 10 stored messages plus the new one exceed the limit; 8 and 9 are the latest exchange.
+    service = _service(model, _messages(10), conversation)
 
     await _send(service, conversation)
 
     prompt = model.calls[0][-1].content
     assert "Previous summary:\nNone" in prompt
-    assert all(f"message {sequence}" in prompt for sequence in (0, 1, 2))
-    assert "message 3" not in prompt
+    assert all(f"message {sequence}" in prompt for sequence in range(8))
+    assert "message 8" not in prompt
+    assert "message 9" not in prompt
     service.repository.record_compaction.assert_awaited_once_with(
         conversation=conversation,
         summary=model.summary,
-        summarized_through_sequence=2,
+        summarized_through_sequence=7,
         marker_content="Context compacted",
     )
     first_appended = service.repository.append_message.await_args_list[0].kwargs
@@ -146,32 +167,29 @@ async def test_compaction_summarizes_messages_that_left_the_window() -> None:
 
 
 @pytest.mark.asyncio
-async def test_compaction_only_summarizes_newly_out_of_window_messages() -> None:
-    model = SummaryModel(summary="Updated summary")
-    conversation = _conversation(summary="Earlier summary", summarized_through=2)
-    marker = SimpleNamespace(
-        id=uuid4(), sequence=3, role="compaction", content="Context compacted", created_at=NOW
-    )
-    messages = [*_messages(3), marker, *_messages(10, start=4)]
+async def test_compaction_runs_when_the_character_limit_is_exceeded() -> None:
+    model = SummaryModel()
+    conversation = _conversation()
+    messages = _messages(4)
+    messages[1].content = "x" * 12_000
     service = _service(model, messages, conversation)
 
     await _send(service, conversation)
 
-    prompt = model.calls[0][-1].content
-    assert "Previous summary:\nEarlier summary" in prompt
-    assert "message 4" in prompt
-    assert "message 2" not in prompt
-    assert "Context compacted" not in prompt
     assert (
-        service.repository.record_compaction.await_args.kwargs["summarized_through_sequence"] == 4
+        service.repository.record_compaction.await_args.kwargs["summarized_through_sequence"] == 1
     )
 
 
 @pytest.mark.asyncio
-async def test_already_summarized_messages_are_not_compacted_again() -> None:
+async def test_no_compaction_on_the_next_message_after_a_compaction() -> None:
     model = SummaryModel()
-    conversation = _conversation(summary="Earlier summary", summarized_through=2)
-    service = _service(model, _messages(12), conversation)
+    conversation = _conversation(summary="Earlier summary", summarized_through=7)
+    marker = SimpleNamespace(
+        id=uuid4(), sequence=10, role="compaction", content="Context compacted", created_at=NOW
+    )
+    messages = [*_messages(10), marker, *_messages(2, start=11)]
+    service = _service(model, messages, conversation)
 
     await _send(service, conversation)
 
@@ -180,10 +198,34 @@ async def test_already_summarized_messages_are_not_compacted_again() -> None:
 
 
 @pytest.mark.asyncio
+async def test_compaction_only_summarizes_messages_after_the_previous_compaction() -> None:
+    model = SummaryModel(summary="Updated summary")
+    conversation = _conversation(summary="Earlier summary", summarized_through=2)
+    marker = SimpleNamespace(
+        id=uuid4(), sequence=3, role="compaction", content="Context compacted", created_at=NOW
+    )
+    messages = [*_messages(3), marker, *_messages(11, start=4)]
+    service = _service(model, messages, conversation)
+
+    await _send(service, conversation)
+
+    prompt = model.calls[0][-1].content
+    assert "Previous summary:\nEarlier summary" in prompt
+    assert "message 4" in prompt
+    assert "message 13" in prompt
+    assert "message 2" not in prompt
+    assert "message 14" not in prompt
+    assert "Context compacted" not in prompt
+    assert (
+        service.repository.record_compaction.await_args.kwargs["summarized_through_sequence"] == 13
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("model", [FailingSummaryModel(), SummaryModel(summary="  ")])
 async def test_summarization_failure_still_answers_and_adds_no_marker(model: object) -> None:
     conversation = _conversation()
-    service = _service(model, _messages(12), conversation)
+    service = _service(model, _messages(10), conversation)
 
     await _send(service, conversation)
 
@@ -191,6 +233,28 @@ async def test_summarization_failure_still_answers_and_adds_no_marker(model: obj
     service._get_graph_response.assert_awaited_once()
     roles = [call.kwargs["role"] for call in service.repository.append_message.await_args_list]
     assert roles == ["user", "assistant"]
+
+
+@pytest.mark.asyncio
+async def test_model_receives_only_messages_after_the_last_compaction() -> None:
+    conversation = _conversation(summary="Earlier summary", summarized_through=7)
+    marker = SimpleNamespace(
+        id=uuid4(), sequence=10, role="compaction", content="Context compacted", created_at=NOW
+    )
+    model = RecordingCallsModel()
+    service = _service(model, [], conversation)
+    del service._get_graph_response
+
+    await service._get_graph_response(
+        cast(User, SimpleNamespace(id=uuid4())),
+        cast(Any, [*_messages(10), marker, *_messages(2, start=11)]),
+        conversation=cast(Any, conversation),
+        pending_content="And for ETH?",
+    )
+
+    contents = [message.content for message in model.calls[0]]
+    assert "Earlier summary" in contents[1]
+    assert contents[2:] == ["message 8", "message 9", "message 11", "message 12", "And for ETH?"]
 
 
 @pytest.mark.asyncio
