@@ -8,6 +8,7 @@ import { LockKeyhole, Mail } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
 import { signInAuthSignInPost } from "@/src/api/generated/auth/auth";
+import { BrandMark } from "@/shared/components/brand-mark";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -83,6 +84,7 @@ function SignInPageContent() {
 		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-background/80 px-6 py-12">
 			<Card className="w-full max-w-md border-border/30">
 				<CardHeader>
+					<BrandMark className="mb-3 size-10" />
 					<p className="mb-1 text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground/70">
 						MarketPulse
 					</p>

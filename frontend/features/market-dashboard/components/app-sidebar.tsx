@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-	Activity,
 	BadgeCheck,
 	BellRing,
 	ChevronsUpDown,
+	LayoutDashboard,
 	LogOut,
 	MessageCircle,
 	Star,
@@ -34,6 +34,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { BrandMark } from "@/shared/components/brand-mark";
 import { useMeAuthMeGet } from "@/src/api/generated/auth/auth";
 import { clearSession } from "@/shared/lib/auth";
 
@@ -41,15 +42,15 @@ const navGroups = [
 		{
 			label: "General",
 			items: [
-				{ title: "Overview", icon: Activity, href: "/dashboard" },
+				{ title: "Overview", icon: LayoutDashboard, href: "/dashboard", color: "text-sky-400" },
 			],
 		},
 		{
 			label: "Workspace",
 			items: [
-				{ title: "Watchlist", icon: Star, href: "/watchlist" },
-				{ title: "Alerts", icon: BellRing, href: "/alerts" },
-				{ title: "Assistant", icon: MessageCircle, href: "/assistant" },
+				{ title: "Watchlist", icon: Star, href: "/watchlist", color: "text-amber-400" },
+				{ title: "Alerts", icon: BellRing, href: "/alerts", color: "text-rose-400" },
+				{ title: "Assistant", icon: MessageCircle, href: "/assistant", color: "text-violet-400" },
 			],
 		},
 	];
@@ -64,8 +65,8 @@ export function AppSidebar() {
 					<SidebarMenuItem>
 						<SidebarMenuButton size="lg" asChild>
 							<Link href="/dashboard">
-								<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-									<Activity className="size-4" />
+								<div className="flex size-8 shrink-0 items-center justify-center">
+									<BrandMark />
 								</div>
 								<div className="grid flex-1 text-left text-sm leading-tight">
 									<span className="truncate font-semibold">MarketPulse</span>
@@ -91,7 +92,7 @@ export function AppSidebar() {
 											isActive={pathname === item.href}
 										tooltip={item.title}>
 											<Link href={item.href} className="flex items-center gap-2">
-												<Icon />
+												<Icon className={item.color} />
 												<span>{item.title}</span>
 											</Link>
 										</SidebarMenuButton>

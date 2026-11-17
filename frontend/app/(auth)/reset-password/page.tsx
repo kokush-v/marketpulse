@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Mail } from "lucide-react";
 
 import { resetPasswordAuthResetPasswordPost } from "@/src/api/generated/auth/auth";
+import { BrandMark } from "@/shared/components/brand-mark";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Input } from "@/shared/components/ui/input";
@@ -45,6 +46,7 @@ export default function ResetPasswordPage() {
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_#e2e8f0_0%,_#f8fafc_40%,_#ffffff_75%)] px-6 py-12">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <BrandMark className="mb-3 size-10" />
           <p className="mb-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">MarketPulse</p>
           <CardTitle>Reset password</CardTitle>
           <CardDescription>We will email you a secure reset link.</CardDescription>
