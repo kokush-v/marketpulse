@@ -16,8 +16,28 @@ class FakeAlertRepository:
     def __init__(self, alerts: list[AlertRule] | None = None) -> None:
         self.alerts = alerts or []
 
-    async def list_alerts_for_user(self, user_id):
-        return [alert for alert in self.alerts if alert.user_id == user_id]
+    def _matching(self, user_id, *, scenario=None, query=None):
+        needle = (query or "").strip().lower()
+        return [
+            alert
+            for alert in self.alerts
+            if alert.user_id == user_id
+            and (scenario is None or alert.scenario_payload["scenario"] == scenario)
+            and (not needle or needle in alert.symbol.lower() or needle in alert.name.lower())
+        ]
+
+    async def list_alerts_for_user(self, user_id, *, status=None, scenario=None, query=None):
+        return [
+            alert
+            for alert in self._matching(user_id, scenario=scenario, query=query)
+            if status is None or alert.status == status
+        ]
+
+    async def count_alerts_by_status_for_user(self, user_id, *, scenario=None, query=None):
+        counts: dict[str, int] = {}
+        for alert in self._matching(user_id, scenario=scenario, query=query):
+            counts[alert.status] = counts.get(alert.status, 0) + 1
+        return counts
 
     async def get_alert_for_user(self, user_id, alert_id):
         for alert in self.alerts:
@@ -154,20 +174,27 @@ def _make_asset(asset_id: str = "bitcoin", symbol: str = "BTC", name: str = "Bit
     )
 
 
-def _make_alert(*, user_id, status: str = "active", asset_id: str = "bitcoin") -> AlertRule:
+def _make_alert(
+    *,
+    user_id,
+    status: str = "active",
+    asset_id: str = "bitcoin",
+    symbol: str = "BTC",
+    name: str = "Bitcoin",
+    scenario: str = "price_above",
+) -> AlertRule:
+    scenario_payload: dict[str, object] = {"scenario": scenario}
+    if scenario != "coin_news":
+        scenario_payload.update({"trigger_mode": "currency", "threshold_value": 100000.0})
     return AlertRule(
         id=uuid4(),
         user_id=user_id,
         asset_id=asset_id,
-        symbol="BTC",
-        name="Bitcoin",
+        symbol=symbol,
+        name=name,
         image_url="https://example.com/asset.png",
         status=status,
-        scenario_payload={
-            "scenario": "price_above",
-            "trigger_mode": "currency",
-            "threshold_value": 100000.0,
-        },
+        scenario_payload=scenario_payload,
         time_behavior="one_time",
         recurring_start_date=None,
         recurring_end_date=None,
@@ -201,6 +228,128 @@ async def test_list_alerts_returns_only_user_owned_items() -> None:
     assert response.items[0].scenario == "price_above"
     assert response.items[0].time_behavior == "one_time"
     assert response.items[0].time_summary == "One-time alert that pauses after it fires"
+    assert response.counts.model_dump() == {"all": 1, "active": 1, "paused": 0}
+
+
+def _make_filter_service(user, other_user):
+    return AlertService(
+        repository=FakeAlertRepository(
+            [
+                _make_alert(user_id=user.id, asset_id="bitcoin"),
+                _make_alert(
+                    user_id=user.id,
+                    asset_id="bitcoin",
+                    scenario="coin_news",
+                ),
+                _make_alert(
+                    user_id=user.id,
+                    status="paused",
+                    asset_id="solana",
+                    symbol="SOL",
+                    name="Solana",
+                    scenario="price_below",
+                ),
+                _make_alert(
+                    user_id=user.id,
+                    status="paused",
+                    asset_id="solana",
+                    symbol="SOL",
+                    name="Solana",
+                ),
+                _make_alert(
+                    user_id=other_user.id,
+                    status="paused",
+                    asset_id="solana",
+                    symbol="SOL",
+                    name="Solana",
+                ),
+            ]
+        ),
+        market_data_service=FakeMarketDataService(_make_asset()),
+        watchlist_repository=FakeWatchlistRepository({"bitcoin"}),
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_without_filters_returns_all_user_alerts() -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    response = await service.list_alerts(user)
+
+    assert len(response.items) == 4
+    assert response.counts.model_dump() == {"all": 4, "active": 2, "paused": 2}
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_filters_by_status() -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    response = await service.list_alerts(user, status_filter="paused")
+
+    assert [item.status for item in response.items] == ["paused", "paused"]
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_filters_by_scenario() -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    response = await service.list_alerts(user, scenario="coin_news")
+
+    assert [item.scenario for item in response.items] == ["coin_news"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["sol", "SOL", "  Solana  ", "lana"])
+async def test_list_alerts_filters_by_coin_name_or_symbol_ignoring_case(query: str) -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    response = await service.list_alerts(user, query=query)
+
+    assert {item.symbol for item in response.items} == {"SOL"}
+    assert len(response.items) == 2
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_combines_filters_and_returns_nothing_when_none_match() -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    combined = await service.list_alerts(
+        user, status_filter="paused", scenario="price_below", query="sol"
+    )
+    nothing = await service.list_alerts(user, status_filter="active", query="sol")
+
+    assert len(combined.items) == 1
+    assert nothing.items == []
+    assert nothing.counts.model_dump() == {"all": 2, "active": 0, "paused": 2}
+
+
+@pytest.mark.asyncio
+async def test_list_alert_counts_ignore_status_but_respect_search_and_scenario() -> None:
+    user = _make_user()
+    service = _make_filter_service(user, _make_user())
+
+    by_search = await service.list_alerts(user, status_filter="active", query="sol")
+    by_scenario = await service.list_alerts(user, status_filter="paused", scenario="price_above")
+
+    assert by_search.counts.model_dump() == {"all": 2, "active": 0, "paused": 2}
+    assert by_scenario.counts.model_dump() == {"all": 2, "active": 1, "paused": 1}
+
+
+@pytest.mark.asyncio
+async def test_list_alerts_filters_never_return_other_users_alerts() -> None:
+    user = _make_user()
+    other_user = _make_user()
+    service = _make_filter_service(user, other_user)
+
+    response = await service.list_alerts(other_user, status_filter="paused", query="sol")
+
+    assert len(response.items) == 1
+    assert response.counts.model_dump() == {"all": 1, "active": 0, "paused": 1}
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,7 @@ export * from './alertResponseStatus';
 export * from './alertResponseThresholdValue';
 export * from './alertResponseTimeBehavior';
 export * from './alertResponseTriggerMode';
+export * from './alertStatusCounts';
 export * from './assistantChartPayloadResponse';
 export * from './assistantChartPayloadResponsePeriod';
 export * from './assistantChartPointResponse';

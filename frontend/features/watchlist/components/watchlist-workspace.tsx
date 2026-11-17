@@ -176,7 +176,7 @@ export function WatchlistWorkspace() {
 
   const handleAddAlert = (assetId: string) => {
     setPlaceholderMessage(null);
-    router.push(`/alerts/new?assetId=${encodeURIComponent(assetId)}`);
+    router.push(`/alerts?new=1&assetId=${encodeURIComponent(assetId)}`);
   };
 
   return (

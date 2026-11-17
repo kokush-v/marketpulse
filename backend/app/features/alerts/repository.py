@@ -1,24 +1,75 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import ColumnElement, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.alerts.models import AlertRule
+
+
+def _escape_like(value: str) -> str:
+    """Escape LIKE wildcards so user input is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class AlertRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list_alerts_for_user(self, user_id: uuid.UUID) -> list[AlertRule]:
+    async def list_alerts_for_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        status: str | None = None,
+        scenario: str | None = None,
+        query: str | None = None,
+    ) -> list[AlertRule]:
         stmt = (
             select(AlertRule)
-            .where(AlertRule.user_id == user_id)
+            .where(*self._filter_conditions(user_id, scenario=scenario, query=query))
             .order_by(AlertRule.created_at.desc(), AlertRule.name.asc())
         )
+        if status is not None:
+            stmt = stmt.where(AlertRule.status == status)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_alerts_by_status_for_user(
+        self,
+        user_id: uuid.UUID,
+        *,
+        scenario: str | None = None,
+        query: str | None = None,
+    ) -> dict[str, int]:
+        stmt = (
+            select(AlertRule.status, func.count())
+            .where(*self._filter_conditions(user_id, scenario=scenario, query=query))
+            .group_by(AlertRule.status)
+        )
+        result = await self.session.execute(stmt)
+        return {status: count for status, count in result.all()}
+
+    @staticmethod
+    def _filter_conditions(
+        user_id: uuid.UUID,
+        *,
+        scenario: str | None,
+        query: str | None,
+    ) -> list[ColumnElement[bool]]:
+        # Ownership is always part of the conditions; filters only narrow it further.
+        conditions: list[ColumnElement[bool]] = [AlertRule.user_id == user_id]
+        if scenario is not None:
+            conditions.append(AlertRule.scenario_payload["scenario"].astext == scenario)
+        search_text = (query or "").strip()
+        if search_text:
+            pattern = f"%{_escape_like(search_text)}%"
+            conditions.append(
+                or_(
+                    AlertRule.symbol.ilike(pattern, escape="\\"),
+                    AlertRule.name.ilike(pattern, escape="\\"),
+                )
+            )
+        return conditions
 
     async def get_alert_for_user(self, user_id: uuid.UUID, alert_id: uuid.UUID) -> AlertRule | None:
         stmt = select(AlertRule).where(AlertRule.user_id == user_id, AlertRule.id == alert_id)

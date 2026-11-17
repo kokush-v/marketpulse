@@ -15,6 +15,8 @@ from app.features.alerts.schemas import (
     AlertOperationResponse,
     AlertResponse,
     AlertScenario,
+    AlertStatus,
+    AlertStatusCounts,
     AlertTimeBehavior,
     CreateAlertRequest,
     TriggerMode,
@@ -50,9 +52,33 @@ class AlertService:
         self.market_data_service = market_data_service
         self.watchlist_repository = watchlist_repository
 
-    async def list_alerts(self, user: User) -> AlertListResponse:
-        alerts = await self.repository.list_alerts_for_user(user.id)
-        return AlertListResponse(items=[self._to_response(alert) for alert in alerts])
+    async def list_alerts(
+        self,
+        user: User,
+        *,
+        status_filter: AlertStatus | None = None,
+        scenario: AlertScenario | None = None,
+        query: str | None = None,
+    ) -> AlertListResponse:
+        alerts = await self.repository.list_alerts_for_user(
+            user.id,
+            status=status_filter,
+            scenario=scenario,
+            query=query,
+        )
+        # Counts ignore the selected status so each status option shows how many
+        # alerts selecting it would display for the current scenario and search.
+        counts_by_status = await self.repository.count_alerts_by_status_for_user(
+            user.id,
+            scenario=scenario,
+            query=query,
+        )
+        active = counts_by_status.get("active", 0)
+        paused = counts_by_status.get("paused", 0)
+        return AlertListResponse(
+            items=[self._to_response(alert) for alert in alerts],
+            counts=AlertStatusCounts(all=active + paused, active=active, paused=paused),
+        )
 
     async def create_alert(self, user: User, payload: CreateAlertRequest) -> AlertResponse:
         normalized = await self._normalize_payload(user, payload)
