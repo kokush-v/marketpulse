@@ -80,9 +80,11 @@ def test_list_alerts_route_returns_authenticated_user_alerts() -> None:
         assert supabase_user_id == fake_user.supabase_user_id
         return fake_user
 
-    async def fake_list_alerts(self, user):
+    async def fake_list_alerts(self, user, **filters):
         assert user.id == fake_user.id
+        assert filters == {"status_filter": None, "scenario": None, "query": None}
         return {
+            "counts": {"all": 1, "active": 1, "paused": 0},
             "items": [
                 {
                     "id": str(uuid4()),
@@ -104,7 +106,7 @@ def test_list_alerts_route_returns_authenticated_user_alerts() -> None:
                     "created_at": "2026-05-26T08:00:00Z",
                     "updated_at": "2026-05-26T08:00:00Z",
                 }
-            ]
+            ],
         }
 
     auth_dependencies._decode_access_token = fake_decode_access_token
@@ -122,6 +124,66 @@ def test_list_alerts_route_returns_authenticated_user_alerts() -> None:
     assert response.status_code == 200
     assert response.json()["items"][0]["asset_id"] == "bitcoin"
     assert response.json()["items"][0]["scenario"] == "price_above"
+    assert response.json()["counts"] == {"all": 1, "active": 1, "paused": 0}
+
+
+def _call_list_alerts_route(query_string: str):
+    async def fake_get_async_session():
+        yield object()
+
+    app.dependency_overrides[get_async_session] = fake_get_async_session
+    fake_user = _make_user()
+    received: dict[str, object] = {}
+
+    original_decode = auth_dependencies._decode_access_token
+    original_get_authenticated_user = auth_dependencies.AuthService.get_authenticated_user
+    original_list_alerts = alerts_service_module.AlertService.list_alerts
+
+    async def fake_get_authenticated_user(self, supabase_user_id):
+        return fake_user
+
+    async def fake_list_alerts(self, user, **filters):
+        received.update(filters)
+        return {"items": [], "counts": {"all": 0, "active": 0, "paused": 0}}
+
+    auth_dependencies._decode_access_token = lambda _token: {
+        "sub": str(fake_user.supabase_user_id),
+        "email": fake_user.email,
+        "exp": 4102444800,
+    }
+    auth_dependencies.AuthService.get_authenticated_user = fake_get_authenticated_user
+    alerts_service_module.AlertService.list_alerts = fake_list_alerts
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                f"/alerts{query_string}", headers={"Authorization": "Bearer valid"}
+            )
+    finally:
+        auth_dependencies._decode_access_token = original_decode
+        auth_dependencies.AuthService.get_authenticated_user = original_get_authenticated_user
+        alerts_service_module.AlertService.list_alerts = original_list_alerts
+        app.dependency_overrides.clear()
+
+    return response, received
+
+
+def test_list_alerts_route_passes_filters_to_service() -> None:
+    response, received = _call_list_alerts_route("?status=paused&scenario=price_below&q=sol")
+
+    assert response.status_code == 200
+    assert received == {"status_filter": "paused", "scenario": "price_below", "query": "sol"}
+
+
+@pytest.mark.parametrize(
+    "query_string",
+    ["?status=archived", "?scenario=daily_change_above", f"?q={'a' * 101}"],
+)
+def test_list_alerts_route_rejects_invalid_filters(query_string: str) -> None:
+    response, received = _call_list_alerts_route(query_string)
+
+    assert response.status_code == 422
+    assert received == {}
 
 
 def test_create_alert_route_maps_validation_error() -> None:

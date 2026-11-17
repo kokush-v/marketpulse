@@ -79,8 +79,15 @@ class AlertResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AlertStatusCounts(BaseModel):
+    all: int
+    active: int
+    paused: int
+
+
 class AlertListResponse(BaseModel):
     items: list[AlertResponse]
+    counts: AlertStatusCounts
 
 
 class AlertOperationResponse(BaseModel):

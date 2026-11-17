@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 
 from app.features.alerts.schemas import (
@@ -9,6 +9,8 @@ from app.features.alerts.schemas import (
     AlertListResponse,
     AlertOperationResponse,
     AlertResponse,
+    AlertScenario,
+    AlertStatus,
     CreateAlertRequest,
     UpdateAlertRequest,
 )
@@ -35,9 +37,26 @@ def _service_error_response(error: AlertServiceError) -> JSONResponse:
 async def list_alerts(
     current_user: Annotated[User, current_user_dependency],
     service: Annotated[AlertService, Depends()],
+    status_filter: Annotated[
+        AlertStatus | None,
+        Query(alias="status", description="Only return alerts with this status"),
+    ] = None,
+    scenario: Annotated[
+        AlertScenario | None,
+        Query(description="Only return alerts with this scenario"),
+    ] = None,
+    q: Annotated[
+        str | None,
+        Query(max_length=100, description="Match the coin name or symbol"),
+    ] = None,
 ) -> AlertListResponse:
     try:
-        return await service.list_alerts(current_user)
+        return await service.list_alerts(
+            current_user,
+            status_filter=status_filter,
+            scenario=scenario,
+            query=q,
+        )
     except AlertServiceError as error:
         return _service_error_response(error)
 

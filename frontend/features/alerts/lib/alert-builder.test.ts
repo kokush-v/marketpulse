@@ -1,4 +1,4 @@
-import { formatAlertSubtitle, formatRelativeDate, formatTriggerMode, getScenarioLabel, isPriceScenario } from "@/features/alerts/lib/alert-builder";
+import { formatAlertTiming, getScenarioLabel, isPriceScenario } from "@/features/alerts/lib/alert-builder";
 import type { AlertResponse } from "@/src/api/generated/models/alertResponse";
 
 function createAlert(overrides: Partial<AlertResponse> = {}): AlertResponse {
@@ -38,39 +38,27 @@ describe("alert-builder helpers", () => {
     expect(isPriceScenario("coin_news")).toBe(false);
   });
 
-  it("formats news alerts without threshold details", () => {
-    expect(formatAlertSubtitle(createAlert({ scenario: "coin_news", trigger_mode: null, threshold_value: null }))).toBe(
-      "Any new coin news",
-    );
+  it("shows one-time alerts as one-time", () => {
+    expect(formatAlertTiming(createAlert())).toBe("One-time");
   });
 
-  it("formats percent-based price alerts from the current baseline", () => {
-    expect(formatAlertSubtitle(createAlert({ trigger_mode: "percent", threshold_value: 7.5 }))).toBe(
-      "Up 7.5% from current baseline",
-    );
-    expect(
-      formatAlertSubtitle(
-        createAlert({
-          scenario: "price_below",
-          trigger_mode: "percent",
-          threshold_value: 3,
-        }),
-      ),
-    ).toBe("Down 3% from current baseline");
+  it("formats recurring windows with readable dates instead of raw ISO dates", () => {
+    const recurring = createAlert({
+      time_behavior: "daily_recurring",
+      recurring_start_date: "2026-06-04",
+      recurring_end_date: "2026-06-30",
+    });
+
+    expect(formatAlertTiming(recurring)).toBe("Daily · Jun 4 – Jun 30, 2026");
   });
 
-  it("formats currency-based price alerts with comparator text", () => {
-    expect(formatAlertSubtitle(createAlert({ threshold_value: 12345.67 }))).toBe("Above $12,345.67");
-    expect(formatAlertSubtitle(createAlert({ scenario: "price_below", threshold_value: 980 }))).toBe("Below $980");
-  });
+  it("includes both years when a recurring window crosses a year boundary", () => {
+    const recurring = createAlert({
+      time_behavior: "daily_recurring",
+      recurring_start_date: "2026-12-20",
+      recurring_end_date: "2027-01-05",
+    });
 
-  it("formats trigger mode labels for ui summaries", () => {
-    expect(formatTriggerMode("percent")).toBe("% move");
-    expect(formatTriggerMode("currency")).toBe("$ target");
-    expect(formatTriggerMode(undefined)).toBe("Scenario");
-  });
-
-  it("formats timestamps into a readable short label", () => {
-    expect(formatRelativeDate("2026-07-13T09:10:00.000Z")).toMatch(/^Jul 13,/);
+    expect(formatAlertTiming(recurring)).toBe("Daily · Dec 20, 2026 – Jan 5, 2027");
   });
 });
